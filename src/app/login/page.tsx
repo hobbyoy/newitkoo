@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
+import { FirebaseError } from 'firebase/app'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -18,23 +19,27 @@ export default function LoginPage() {
       const result = await signInWithEmailAndPassword(auth, email, password)
       const user = result.user
 
-      // Firestore에 사용자 정보 저장 (이미 존재하는지 확인 후)
+      // Firestore에 사용자 정보 저장 (이미 있으면 무시)
       const userRef = doc(db, 'Users', user.uid)
       const userSnap = await getDoc(userRef)
       if (!userSnap.exists()) {
         await setDoc(userRef, {
           uid: user.uid,
           email: user.email,
-          name: '', // 운영자가 나중에 설정 가능
-          role: 'user', // 기본은 일반 사용자
+          name: '',        // 운영자 등록 예정
+          role: 'user',    // 기본은 일반 사용자
           createdAt: new Date()
         })
       }
 
       setMessage('✅ 로그인 성공!')
-      router.push('/dashboard/tab0') // 로그인 후 이동 경로
-    } catch (error: any) {
-      setMessage('❌ 로그인 실패: ' + error.message)
+      router.push('/dashboard/tab0')
+    } catch (error: unknown) {
+      if (error instanceof FirebaseError) {
+        setMessage('❌ 로그인 실패: ' + error.message)
+      } else {
+        setMessage('❌ 로그인 실패: 알 수 없는 오류')
+      }
     }
   }
 
