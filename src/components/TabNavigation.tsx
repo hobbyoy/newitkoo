@@ -16,8 +16,8 @@ const tabs = [
   { label: '📈 수익 요약', path: '/dashboard/tab4', role: 'admin' },
   { label: '🧊 프레시백', path: '/dashboard/tab5', role: 'admin' },
   { label: '🧾 최종 손익', path: '/dashboard/tab6', role: 'admin' },
+  { label: '🆕 기사 등록', path: '/dashboard/tab7', role: 'admin' }, 
   { label: '⚙️ 단가 관리', path: '/dashboard/tab8', role: 'admin' },
-  { label: '👥 기사 계정', path: '/dashboard/tab9', role: 'admin' },
   { label: '✅ 실적 검수', path: '/dashboard/tab10', role: 'admin' }
 ]
 
