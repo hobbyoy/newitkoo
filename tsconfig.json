@@ -13,9 +13,9 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "baseUrl": ".",                            // ✅ 반드시 추가
+    "baseUrl": ".",               // ✅ 절대 기준
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["src/*"]           // ✅ 이 부분 수정됨 (./ 제거)
     },
     "plugins": [
       {
