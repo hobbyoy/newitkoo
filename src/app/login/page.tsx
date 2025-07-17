@@ -2,7 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { signInWithEmailAndPassword } from 'firebase/auth'
+import {
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  User
+} from 'firebase/auth'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import { FirebaseError } from 'firebase/app'
@@ -14,22 +18,38 @@ export default function LoginPage() {
   const router = useRouter()
 
   const handleLogin = async () => {
-    setMessage('')
+    setMessage('⏳ 로그인 시도 중...')
     try {
       const result = await signInWithEmailAndPassword(auth, email, password)
       const user = result.user
 
-      // Firestore에 사용자 정보 저장 (이미 있으면 무시)
+      if (!user) {
+        setMessage('❌ 로그인 실패: 사용자 정보 없음')
+        return
+      }
+
+      const userData = {
+        uid: user.uid,
+        email: user.email,
+        name: '',
+        role: 'user',
+        createdAt: new Date()
+      }
+
+      // 사용자 인증 확정될 때까지 기다리기
+      await new Promise<void>((resolve) => {
+        const unsubscribe = onAuthStateChanged(auth, (firebaseUser: User | null) => {
+          if (firebaseUser?.uid === user.uid) {
+            unsubscribe()
+            resolve()
+          }
+        })
+      })
+
       const userRef = doc(db, 'Users', user.uid)
       const userSnap = await getDoc(userRef)
       if (!userSnap.exists()) {
-        await setDoc(userRef, {
-          uid: user.uid,
-          email: user.email,
-          name: '',        // 운영자 등록 예정
-          role: 'user',    // 기본은 일반 사용자
-          createdAt: new Date()
-        })
+        await setDoc(userRef, userData)
       }
 
       setMessage('✅ 로그인 성공!')
@@ -49,16 +69,16 @@ export default function LoginPage() {
       <input
         type="email"
         placeholder="이메일"
-        className="border px-4 py-2 mb-2 rounded w-80"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        className="border px-4 py-2 mb-2 rounded w-80"
       />
       <input
         type="password"
         placeholder="비밀번호"
-        className="border px-4 py-2 mb-4 rounded w-80"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        className="border px-4 py-2 mb-4 rounded w-80"
       />
       <button
         onClick={handleLogin}
