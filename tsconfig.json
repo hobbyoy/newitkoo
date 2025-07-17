@@ -13,10 +13,13 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "baseUrl": ".",               // ✅ 절대 기준
+
+    // ✅ 여기부터 중요
+    "baseUrl": ".",                     // 프로젝트 루트를 기준으로 설정
     "paths": {
-      "@/*": ["src/*"]           // ✅ 이 부분 수정됨 (./ 제거)
+      "@/*": ["src/*"]                 // @ → src 폴더 바로 매핑
     },
+
     "plugins": [
       {
         "name": "next"
