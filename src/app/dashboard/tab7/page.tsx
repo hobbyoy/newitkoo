@@ -1,11 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, ChangeEvent } from 'react'
 import { auth, db } from '@/lib/firebase'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { collection, doc, setDoc, getDocs } from 'firebase/firestore'
 import TabNavigation from '@/components/TabNavigation'
 import useRoleGuard from '@/hooks/useRoleGuard'
+
+interface User {
+  uid: string
+  email: string
+  name: string
+  itkooId: string
+  role: 'admin' | 'driver'
+}
 
 export default function Tab7() {
   useRoleGuard('admin')
@@ -15,12 +23,13 @@ export default function Tab7() {
     password: '',
     name: '',
     itkooId: '',
-    role: 'driver',
+    role: 'driver' as 'admin' | 'driver',
   })
-  const [message, setMessage] = useState('')
-  const [userList, setUserList] = useState<any[]>([])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const [message, setMessage] = useState('')
+  const [userList, setUserList] = useState<User[]>([])
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
@@ -34,12 +43,13 @@ export default function Tab7() {
       alert('❗ 비밀번호는 최소 6자 이상이어야 합니다.')
       return
     }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const uid = userCredential.user.uid
 
       await setDoc(doc(db, 'Users', uid), {
-        uid, // ✅ 추가됨
+        uid,
         email,
         name,
         itkooId,
@@ -49,15 +59,17 @@ export default function Tab7() {
       setMessage(`✅ 등록 완료: ${email} (${uid})`)
       setForm({ email: '', password: '', name: '', itkooId: '', role: 'driver' })
       await loadUsers()
-    } catch (err: any) {
-      console.error(err)
-      setMessage(`❌ 등록 실패: ${err.message}`)
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error(err)
+        setMessage(`❌ 등록 실패: ${err.message}`)
+      }
     }
   }
 
   const loadUsers = async () => {
     const snap = await getDocs(collection(db, 'Users'))
-    const list = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() }))
+    const list = snap.docs.map(doc => doc.data() as User)
     setUserList(list)
   }
 
@@ -107,7 +119,11 @@ export default function Tab7() {
             등록하기
           </button>
 
-          {message && <p className="mt-4 text-sm text-center font-medium text-green-600 whitespace-pre-wrap">{message}</p>}
+          {message && (
+            <p className="mt-4 text-sm text-center font-medium text-green-600 whitespace-pre-wrap">
+              {message}
+            </p>
+          )}
         </div>
 
         <hr className="my-8" />
