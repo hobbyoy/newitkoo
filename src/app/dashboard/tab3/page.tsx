@@ -76,8 +76,8 @@ export default function Tab3() {
   useEffect(() => {
     const loadPdfMake = async () => {
       if (typeof window === 'undefined') return
-      const module = await import('pdfmake/build/pdfmake')
-      const pdfMake = module.default || module
+      const pdfModule = await import('pdfmake/build/pdfmake') 
+      const pdfMake = pdfModule.default || pdfModule
       pdfMake.vfs = notoVfs
       pdfMake.fonts = {
         NotoSans: {
@@ -181,49 +181,6 @@ export default function Tab3() {
     const snap = await getDocs(collection(db, 'Users'))
     const list = snap.docs.map(doc => ({ uid: doc.id, ...(doc.data() as Omit<Driver, 'uid'>) }))
     setDriverList(list)
-  }
-
-  const loadSummary = async () => {
-    if (!startDate || !endDate) return
-    const q = query(collection(db, 'DailyRecords'), where('deliveryDate', '>=', startDate), where('deliveryDate', '<=', endDate))
-    const snap = await getDocs(q)
-    const raw: RecordData[] = snap.docs.map(doc => doc.data() as RecordData)
-
-    const map: Record<string, Summary> = {}
-
-    for (const item of raw) {
-      const key = item.uid
-      if (!map[key]) {
-        map[key] = {
-          uid: key,
-          email: item.email,
-          name: item.name,
-          ids: new Set(),
-          routes: new Set(),
-          totalDelivery: 0,
-          totalReturn: 0,
-          totalCount: 0,
-          driverIncome: 0
-        }
-      }
-
-      const delivery = item.deliveryCount
-      const returns = item.returnCount
-      const total = delivery + returns
-
-      const unitKey = `${item.route}_${item.coupangId}`.toUpperCase()
-      const unitSnap = await getDoc(doc(db, 'Routes', unitKey))
-      const price = unitSnap.exists() ? (unitSnap.data() as RouteUnit).driverUnitPrice : 0
-
-      map[key].routes.add(item.route)
-      map[key].ids.add(item.coupangId)
-      map[key].totalDelivery += delivery
-      map[key].totalReturn += returns
-      map[key].totalCount += total
-      map[key].driverIncome += total * price
-    }
-
-    setSummary(Object.values(map))
   }
 
   useEffect(() => { loadDrivers() }, [])
