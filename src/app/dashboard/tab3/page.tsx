@@ -4,12 +4,10 @@ import { useState, useEffect, useRef } from 'react'
 import useRoleGuard from '@/hooks/useRoleGuard'
 import { db } from '@/lib/firebase'
 import {
-  collection, query, where, getDocs,
-  doc, getDoc, setDoc
+  collection, query, where, getDocs, doc, getDoc, setDoc
 } from 'firebase/firestore'
 import TabNavigation from '@/components/TabNavigation'
 import notoVfs from '@/lib/fonts/noto-vfs'
-import type pdfMake from 'pdfmake/build/pdfmake'
 
 interface Driver {
   uid: string
@@ -61,12 +59,14 @@ export default function Tab3() {
   const [summary, setSummary] = useState<Summary[]>([])
   const [selectedUid, setSelectedUid] = useState('')
   const [deductions, setDeductions] = useState<Record<string, Partial<Deductions>>>({})
-  const pdfMakeRef = useRef<typeof pdfMake | null>(null)
+  const pdfMakeRef = useRef<any>(null) // 내부 useEffect에서만 사용
 
-  const selectedDriver = summary.find((d) => d.uid === selectedUid)
+  const selectedDriver = summary.find(d => d.uid === selectedUid)
 
   useEffect(() => {
+    // 클라이언트에서만 로드
     const loadPdfMake = async () => {
+      if (typeof window === 'undefined') return
       const pdfMakeModule = await import('pdfmake/build/pdfmake')
       const pdfMake = pdfMakeModule.default || pdfMakeModule
       pdfMake.vfs = notoVfs
@@ -85,7 +85,7 @@ export default function Tab3() {
 
   const handleDeductionChange = (field: keyof Deductions, value: string) => {
     if (!selectedUid) return
-    setDeductions((prev) => ({
+    setDeductions(prev => ({
       ...prev,
       [selectedUid]: {
         ...prev[selectedUid],
@@ -129,13 +129,14 @@ export default function Tab3() {
   }
 
   const handleExportPDF = () => {
-    if (!pdfMakeRef.current || !selectedDriver) return
+    const pdfMake = pdfMakeRef.current
+    if (!pdfMake || !selectedDriver) return
+
     const d = deductions[selectedDriver.uid] || {}
     const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
     const freshback = d.freshback || 0
     const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
 
-    const pdfMake = pdfMakeRef.current
     const docDefinition = {
       content: [
         { text: '📄 잇쿠 기사 정산서', fontSize: 18, alignment: 'center', margin: [0, 0, 0, 10] },
@@ -159,8 +160,7 @@ export default function Tab3() {
               ['▶ 실지급액', finalPay.toLocaleString()]
             ]
           },
-          layout: 'lightHorizontalLines',
-          margin: [0, 10, 0, 0]
+          layout: 'lightHorizontalLines'
         }
       ],
       defaultStyle: { font: 'NotoSans' }
@@ -199,8 +199,8 @@ export default function Tab3() {
         }
       }
 
-      const delivery = Number(item.deliveryCount)
-      const returns = Number(item.returnCount)
+      const delivery = item.deliveryCount
+      const returns = item.returnCount
       const total = delivery + returns
 
       const unitKey = `${item.route}_${item.coupangId}`.toUpperCase()
@@ -247,7 +247,7 @@ export default function Tab3() {
           </div>
         </div>
 
-        {selectedDriver ? (() => {
+        {selectedDriver && (() => {
           const d = deductions[selectedDriver.uid] || {}
           const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
           const freshback = d.freshback || 0
@@ -299,9 +299,7 @@ export default function Tab3() {
               </div>
             </div>
           )
-        })() : (
-          <p className="text-gray-500 mt-4">기사와 기간을 선택하면 실지급 정보를 확인할 수 있습니다.</p>
-        )}
+        })()}
       </main>
     </div>
   )
