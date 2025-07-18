@@ -1,5 +1,3 @@
-// src/app/dashboard/tab3/Tab3Client.tsx
-
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -17,7 +15,14 @@ type PdfMakeType = {
     download: (filename?: string) => void
   }
   vfs?: Record<string, string>
-  fonts?: unknown
+  fonts?: {
+    [fontName: string]: {
+      normal: string
+      bold: string
+      italics: string
+      bolditalics: string
+    }
+  }
 }
 
 interface Driver {
@@ -75,9 +80,10 @@ export default function Tab3Client() {
   const selectedDriver = summary.find((d) => d.uid === selectedUid)
 
   useEffect(() => {
-    const loadPdfMake = async () => {
+    const loadPdf = async () => {
+      if (typeof window === 'undefined') return
       const pdfModule = await import('pdfmake/build/pdfmake')
-      const pdfMake = pdfModule.default || pdfModule
+      const pdfMake = (pdfModule.default || pdfModule) as PdfMakeType
       pdfMake.vfs = notoVfs
       pdfMake.fonts = {
         NotoSans: {
@@ -89,12 +95,12 @@ export default function Tab3Client() {
       }
       pdfMakeRef.current = pdfMake
     }
-    loadPdfMake()
+    loadPdf()
   }, [])
 
   const handleDeductionChange = (field: keyof Deductions, value: string) => {
     if (!selectedUid) return
-    setDeductions((prev) => ({
+    setDeductions(prev => ({
       ...prev,
       [selectedUid]: {
         ...prev[selectedUid],
@@ -183,64 +189,58 @@ export default function Tab3Client() {
     setDriverList(list)
   }
 
-  useEffect(() => {
-    loadDrivers()
-  }, [])
-
-  useEffect(() => {
+  const loadSummary = async () => {
     if (!startDate || !endDate) return
+    const q = query(collection(db, 'DailyRecords'), where('deliveryDate', '>=', startDate), where('deliveryDate', '<=', endDate))
+    const snap = await getDocs(q)
+    const raw: RecordData[] = snap.docs.map(doc => doc.data() as RecordData)
 
-    const fetchSummary = async () => {
-      const q = query(collection(db, 'DailyRecords'), where('deliveryDate', '>=', startDate), where('deliveryDate', '<=', endDate))
-      const snap = await getDocs(q)
-      const raw: RecordData[] = snap.docs.map(doc => doc.data() as RecordData)
+    const map: Record<string, Summary> = {}
 
-      const map: Record<string, Summary> = {}
-
-      for (const item of raw) {
-        const key = item.uid
-        if (!map[key]) {
-          map[key] = {
-            uid: key,
-            email: item.email,
-            name: item.name,
-            ids: new Set(),
-            routes: new Set(),
-            totalDelivery: 0,
-            totalReturn: 0,
-            totalCount: 0,
-            driverIncome: 0
-          }
+    for (const item of raw) {
+      const key = item.uid
+      if (!map[key]) {
+        map[key] = {
+          uid: key,
+          email: item.email,
+          name: item.name,
+          ids: new Set(),
+          routes: new Set(),
+          totalDelivery: 0,
+          totalReturn: 0,
+          totalCount: 0,
+          driverIncome: 0
         }
-
-        const delivery = item.deliveryCount
-        const returns = item.returnCount
-        const total = delivery + returns
-
-        const unitKey = `${item.route}_${item.coupangId}`.toUpperCase()
-        const unitSnap = await getDoc(doc(db, 'Routes', unitKey))
-        const price = unitSnap.exists() ? (unitSnap.data() as RouteUnit).driverUnitPrice : 0
-
-        map[key].routes.add(item.route)
-        map[key].ids.add(item.coupangId)
-        map[key].totalDelivery += delivery
-        map[key].totalReturn += returns
-        map[key].totalCount += total
-        map[key].driverIncome += total * price
       }
 
-      setSummary(Object.values(map))
+      const delivery = item.deliveryCount
+      const returns = item.returnCount
+      const total = delivery + returns
+
+      const unitKey = `${item.route}_${item.coupangId}`.toUpperCase()
+      const unitSnap = await getDoc(doc(db, 'Routes', unitKey))
+      const price = unitSnap.exists() ? (unitSnap.data() as RouteUnit).driverUnitPrice : 0
+
+      map[key].routes.add(item.route)
+      map[key].ids.add(item.coupangId)
+      map[key].totalDelivery += delivery
+      map[key].totalReturn += returns
+      map[key].totalCount += total
+      map[key].driverIncome += total * price
     }
 
-    fetchSummary()
-  }, [startDate, endDate])
+    setSummary(Object.values(map))
+  }
+
+  useEffect(() => { loadDrivers() }, [])
+  useEffect(() => { if (startDate && endDate) loadSummary() }, [startDate, endDate])
 
   return (
     <div>
       <TabNavigation />
       <main className="p-6 max-w-4xl mx-auto">
-        {/* UI는 이전과 동일하므로 생략 가능 */}
-        {/* 기사 선택 + 정산 계산 UI */}
+        {/* ✅ UI 생략 가능, 정산 페이지 확인되면 확장 */}
+        <h1 className="text-xl font-bold text-blue-700">tab3 정상 작동 확인</h1>
       </main>
     </div>
   )
