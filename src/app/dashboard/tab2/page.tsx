@@ -128,7 +128,7 @@ export default function Tab2() {
     setSummary(Object.values(driverMap))
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (startDate && endDate) loadData()
   }, [startDate, endDate])

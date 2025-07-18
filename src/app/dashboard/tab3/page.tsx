@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import useRoleGuard from '@/hooks/useRoleGuard'
 import { db } from '@/lib/firebase'
 import {
-  collection, query, where, getDocs, doc, getDoc, setDoc
+  collection, query, where, getDocs,
+  doc, getDoc, setDoc
 } from 'firebase/firestore'
 import TabNavigation from '@/components/TabNavigation'
 import notoVfs from '@/lib/fonts/noto-vfs'
@@ -50,6 +51,15 @@ interface Deductions {
   freshback: number
 }
 
+// ✅ pdfMake 타입 정의
+type PdfMakeType = {
+  createPdf: (docDefinition: object) => {
+    download: (filename?: string) => void
+  }
+vfs?: Record<string, string>
+fonts?: unknown
+}
+
 export default function Tab3() {
   useRoleGuard('admin')
 
@@ -59,16 +69,15 @@ export default function Tab3() {
   const [summary, setSummary] = useState<Summary[]>([])
   const [selectedUid, setSelectedUid] = useState('')
   const [deductions, setDeductions] = useState<Record<string, Partial<Deductions>>>({})
-  const pdfMakeRef = useRef<any>(null) // 내부 useEffect에서만 사용
+  const pdfMakeRef = useRef<PdfMakeType | null>(null)
 
-  const selectedDriver = summary.find(d => d.uid === selectedUid)
+  const selectedDriver = summary.find((d) => d.uid === selectedUid)
 
   useEffect(() => {
-    // 클라이언트에서만 로드
     const loadPdfMake = async () => {
       if (typeof window === 'undefined') return
-      const pdfMakeModule = await import('pdfmake/build/pdfmake')
-      const pdfMake = pdfMakeModule.default || pdfMakeModule
+      const module = await import('pdfmake/build/pdfmake')
+      const pdfMake = module.default || module
       pdfMake.vfs = notoVfs
       pdfMake.fonts = {
         NotoSans: {
@@ -85,7 +94,7 @@ export default function Tab3() {
 
   const handleDeductionChange = (field: keyof Deductions, value: string) => {
     if (!selectedUid) return
-    setDeductions(prev => ({
+    setDeductions((prev) => ({
       ...prev,
       [selectedUid]: {
         ...prev[selectedUid],
@@ -131,7 +140,6 @@ export default function Tab3() {
   const handleExportPDF = () => {
     const pdfMake = pdfMakeRef.current
     if (!pdfMake || !selectedDriver) return
-
     const d = deductions[selectedDriver.uid] || {}
     const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
     const freshback = d.freshback || 0
@@ -219,7 +227,53 @@ export default function Tab3() {
   }
 
   useEffect(() => { loadDrivers() }, [])
-  useEffect(() => { if (startDate && endDate) loadSummary() }, [startDate, endDate])
+  useEffect(() => {
+  if (!startDate || !endDate) return
+
+  const fetchSummary = async () => {
+    const q = query(collection(db, 'DailyRecords'), where('deliveryDate', '>=', startDate), where('deliveryDate', '<=', endDate))
+    const snap = await getDocs(q)
+    const raw: RecordData[] = snap.docs.map(doc => doc.data() as RecordData)
+
+    const map: Record<string, Summary> = {}
+
+    for (const item of raw) {
+      const key = item.uid
+      if (!map[key]) {
+        map[key] = {
+          uid: key,
+          email: item.email,
+          name: item.name,
+          ids: new Set(),
+          routes: new Set(),
+          totalDelivery: 0,
+          totalReturn: 0,
+          totalCount: 0,
+          driverIncome: 0
+        }
+      }
+
+      const delivery = item.deliveryCount
+      const returns = item.returnCount
+      const total = delivery + returns
+
+      const unitKey = `${item.route}_${item.coupangId}`.toUpperCase()
+      const unitSnap = await getDoc(doc(db, 'Routes', unitKey))
+      const price = unitSnap.exists() ? (unitSnap.data() as RouteUnit).driverUnitPrice : 0
+
+      map[key].routes.add(item.route)
+      map[key].ids.add(item.coupangId)
+      map[key].totalDelivery += delivery
+      map[key].totalReturn += returns
+      map[key].totalCount += total
+      map[key].driverIncome += total * price
+    }
+
+    setSummary(Object.values(map))
+  }
+
+  fetchSummary()
+}, [startDate, endDate])
 
   return (
     <div>
