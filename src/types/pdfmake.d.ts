@@ -1,11 +1,13 @@
 declare module 'pdfmake/build/pdfmake' {
-  const pdfMake: {
-    createPdf: (docDefinition: any) => {
-      download: (filename: string) => void
+  interface PdfMake {
+    createPdf: (docDefinition: object) => {
+      download: (filename?: string) => void
     }
-    vfs?: any
-    fonts?: any
+    vfs?: Record<string, string>
+    fonts?: unknown
   }
+
+  const pdfMake: PdfMake
   export default pdfMake
 }
 

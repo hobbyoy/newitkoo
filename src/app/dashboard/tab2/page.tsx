@@ -55,7 +55,6 @@ interface DriverSummary {
 export default function Tab2() {
   useRoleGuard('admin')
 
-  const [records, setRecords] = useState<DailyRecord[]>([])
   const [summary, setSummary] = useState<DriverSummary[]>([])
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -69,9 +68,7 @@ export default function Tab2() {
       where('deliveryDate', '<=', endDate)
     )
     const snapshot = await getDocs(q)
-    const raw: DailyRecord[] = []
-    snapshot.forEach((doc) => raw.push(doc.data() as DailyRecord))
-    setRecords(raw)
+    const raw: DailyRecord[] = snapshot.docs.map(doc => doc.data() as DailyRecord)
 
     const driverMap: Record<string, DriverSummary> = {}
 
@@ -80,8 +77,8 @@ export default function Tab2() {
       if (!driverMap[key]) {
         driverMap[key] = {
           uid: key,
-          email: item.email || '',
-          name: item.name || '',
+          email: item.email,
+          name: item.name,
           routes: new Set(),
           ids: new Set(),
           totalDelivery: 0,
@@ -131,6 +128,7 @@ export default function Tab2() {
     setSummary(Object.values(driverMap))
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (startDate && endDate) loadData()
   }, [startDate, endDate])
@@ -138,7 +136,6 @@ export default function Tab2() {
   return (
     <div>
       <TabNavigation />
-
       <main className="p-6">
         <h1 className="text-xl font-bold mb-4">📊 기사별 실적 요약 (tab2)</h1>
 
