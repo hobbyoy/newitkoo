@@ -1,29 +1,15 @@
+// src/app/dashboard/tab3/Tab3Client.tsx
+
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import useRoleGuard from '@/hooks/useRoleGuard'
+import { useState, useEffect } from 'react'
 import { db } from '@/lib/firebase'
 import {
-  collection, query, where, getDocs,
-  doc, getDoc, setDoc
+  collection, query, where, getDocs, doc, getDoc, setDoc,
 } from 'firebase/firestore'
+import useRoleGuard from '@/hooks/useRoleGuard'
 import TabNavigation from '@/components/TabNavigation'
-import notoVfs from '@/lib/fonts/noto-vfs'
-
-type PdfMakeType = {
-  createPdf: (docDefinition: object) => {
-    download: (filename?: string) => void
-  }
-  vfs?: Record<string, string>
-  fonts?: {
-    [fontName: string]: {
-      normal: string
-      bold: string
-      italics: string
-      bolditalics: string
-    }
-  }
-}
+import { PDFDownloadLink, Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 
 interface Driver {
   uid: string
@@ -49,21 +35,32 @@ interface Summary {
   uid: string
   email: string
   name: string
-  ids: Set<string>
-  routes: Set<string>
-  totalDelivery: number
-  totalReturn: number
   totalCount: number
   driverIncome: number
 }
 
-interface Deductions {
-  insEmp: number
-  insInd: number
-  rental: number
-  damage: number
-  etc: number
-  freshback: number
+const styles = StyleSheet.create({
+  page: { padding: 30 },
+  section: { marginBottom: 12 },
+  title: { fontSize: 18, marginBottom: 10, textAlign: 'center' },
+  row: { flexDirection: 'row', justifyContent: 'space-between' },
+  label: { fontWeight: 'bold' },
+})
+
+function MyPDF({ data }: { data: Summary }) {
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        <Text style={styles.title}>📄 잇쿠 기사 정산서</Text>
+        <View style={styles.section}>
+          <Text>기사명: {data.name}</Text>
+          <Text>이메일: {data.email}</Text>
+          <Text>총 건수: {data.totalCount}건</Text>
+          <Text>기사 수익: {data.driverIncome.toLocaleString()}원</Text>
+        </View>
+      </Page>
+    </Document>
+  )
 }
 
 export default function Tab3Client() {
@@ -74,173 +71,98 @@ export default function Tab3Client() {
   const [driverList, setDriverList] = useState<Driver[]>([])
   const [summary, setSummary] = useState<Summary[]>([])
   const [selectedUid, setSelectedUid] = useState('')
-  const [deductions, setDeductions] = useState<Record<string, Partial<Deductions>>>({})
-  const pdfMakeRef = useRef<PdfMakeType | null>(null)
 
-  const selectedDriver = summary.find((d) => d.uid === selectedUid)
+  const selectedDriver = summary.find(d => d.uid === selectedUid)
 
   useEffect(() => {
-    const loadPdf = async () => {
-      if (typeof window === 'undefined') return
-      const pdfModule = await import('pdfmake/build/pdfmake')
-      const pdfMake = (pdfModule.default || pdfModule) as PdfMakeType
-      pdfMake.vfs = notoVfs
-      pdfMake.fonts = {
-        NotoSans: {
-          normal: 'NotoSansKR-Regular.ttf',
-          bold: 'NotoSansKR-Regular.ttf',
-          italics: 'NotoSansKR-Regular.ttf',
-          bolditalics: 'NotoSansKR-Regular.ttf'
-        }
-      }
-      pdfMakeRef.current = pdfMake
+    const loadDrivers = async () => {
+      const snap = await getDocs(collection(db, 'Users'))
+      const list = snap.docs.map(doc => ({ uid: doc.id, ...(doc.data() as Omit<Driver, 'uid'>) }))
+      setDriverList(list)
     }
-    loadPdf()
+    loadDrivers()
   }, [])
 
-  const handleDeductionChange = (field: keyof Deductions, value: string) => {
-    if (!selectedUid) return
-    setDeductions(prev => ({
-      ...prev,
-      [selectedUid]: {
-        ...prev[selectedUid],
-        [field]: Number(value) || 0
-      }
-    }))
-  }
+  useEffect(() => {
+    const loadSummary = async () => {
+      if (!startDate || !endDate) return
+      const q = query(collection(db, 'DailyRecords'),
+        where('deliveryDate', '>=', startDate),
+        where('deliveryDate', '<=', endDate))
+      const snap = await getDocs(q)
+      const raw: RecordData[] = snap.docs.map(doc => doc.data() as RecordData)
 
-  const handleSave = async () => {
-    if (!selectedDriver || !startDate || !endDate) return
-    const d = deductions[selectedDriver.uid] || {}
-    const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
-    const freshback = d.freshback || 0
-    const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
-    const docId = `${selectedDriver.uid}|${startDate}~${endDate}`
+      const map: Record<string, Summary> = {}
 
-    await setDoc(doc(db, 'FinalPayouts', docId), {
-      uid: selectedDriver.uid,
-      email: selectedDriver.email,
-      name: selectedDriver.name,
-      startDate,
-      endDate,
-      totalDelivery: selectedDriver.totalDelivery,
-      totalReturn: selectedDriver.totalReturn,
-      totalCount: selectedDriver.totalCount,
-      driverIncome: selectedDriver.driverIncome,
-      totalDeduction: totalDeduct,
-      freshback,
-      finalPay,
-      deductions: {
-        insEmp: d.insEmp || 0,
-        insInd: d.insInd || 0,
-        rental: d.rental || 0,
-        damage: d.damage || 0,
-        etc: d.etc || 0
-      },
-      createdAt: new Date()
-    })
-
-    alert('✅ 정산 결과 저장 완료')
-  }
-
-  const handleExportPDF = () => {
-    const pdfMake = pdfMakeRef.current
-    if (!pdfMake || !selectedDriver) return
-    const d = deductions[selectedDriver.uid] || {}
-    const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
-    const freshback = d.freshback || 0
-    const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
-
-    const docDefinition = {
-      content: [
-        { text: '📄 잇쿠 기사 정산서', fontSize: 18, alignment: 'center', margin: [0, 0, 0, 10] },
-        { text: `기사명: ${selectedDriver.name} (${selectedDriver.email})`, margin: [0, 10, 0, 2] },
-        { text: `정산 기간: ${startDate} ~ ${endDate}`, margin: [0, 0, 0, 10] },
-        {
-          table: {
-            widths: ['*', '*'],
-            body: [
-              ['항목', '금액 (원)'],
-              ['배송 건수', selectedDriver.totalDelivery],
-              ['반품 건수', selectedDriver.totalReturn],
-              ['총 건수', selectedDriver.totalCount],
-              ['기사 수익', selectedDriver.driverIncome.toLocaleString()],
-              ['고용보험', (d.insEmp || 0).toLocaleString()],
-              ['산재보험', (d.insInd || 0).toLocaleString()],
-              ['운송지원비', (d.rental || 0).toLocaleString()],
-              ['파손/분실', (d.damage || 0).toLocaleString()],
-              ['기타 차감', (d.etc || 0).toLocaleString()],
-              ['프레시백 수익', freshback.toLocaleString()],
-              ['▶ 실지급액', finalPay.toLocaleString()]
-            ]
-          },
-          layout: 'lightHorizontalLines'
+      for (const item of raw) {
+        const key = item.uid
+        if (!map[key]) {
+          map[key] = {
+            uid: key,
+            email: item.email,
+            name: item.name,
+            totalCount: 0,
+            driverIncome: 0
+          }
         }
-      ],
-      defaultStyle: { font: 'NotoSans' }
-    }
 
-    pdfMake.createPdf(docDefinition).download(`정산서_${selectedDriver.name}_${startDate}_${endDate}.pdf`)
-  }
+        const total = item.deliveryCount + item.returnCount
+        const routeKey = `${item.route}_${item.coupangId}`.toUpperCase()
+        const routeSnap = await getDoc(doc(db, 'Routes', routeKey))
+        const unitPrice = routeSnap.exists() ? (routeSnap.data() as RouteUnit).driverUnitPrice : 0
 
-  const loadDrivers = async () => {
-    const snap = await getDocs(collection(db, 'Users'))
-    const list = snap.docs.map(doc => ({ uid: doc.id, ...(doc.data() as Omit<Driver, 'uid'>) }))
-    setDriverList(list)
-  }
-
-  const loadSummary = async () => {
-    if (!startDate || !endDate) return
-    const q = query(collection(db, 'DailyRecords'), where('deliveryDate', '>=', startDate), where('deliveryDate', '<=', endDate))
-    const snap = await getDocs(q)
-    const raw: RecordData[] = snap.docs.map(doc => doc.data() as RecordData)
-
-    const map: Record<string, Summary> = {}
-
-    for (const item of raw) {
-      const key = item.uid
-      if (!map[key]) {
-        map[key] = {
-          uid: key,
-          email: item.email,
-          name: item.name,
-          ids: new Set(),
-          routes: new Set(),
-          totalDelivery: 0,
-          totalReturn: 0,
-          totalCount: 0,
-          driverIncome: 0
-        }
+        map[key].totalCount += total
+        map[key].driverIncome += total * unitPrice
       }
 
-      const delivery = item.deliveryCount
-      const returns = item.returnCount
-      const total = delivery + returns
-
-      const unitKey = `${item.route}_${item.coupangId}`.toUpperCase()
-      const unitSnap = await getDoc(doc(db, 'Routes', unitKey))
-      const price = unitSnap.exists() ? (unitSnap.data() as RouteUnit).driverUnitPrice : 0
-
-      map[key].routes.add(item.route)
-      map[key].ids.add(item.coupangId)
-      map[key].totalDelivery += delivery
-      map[key].totalReturn += returns
-      map[key].totalCount += total
-      map[key].driverIncome += total * price
+      setSummary(Object.values(map))
     }
 
-    setSummary(Object.values(map))
-  }
-
-  useEffect(() => { loadDrivers() }, [])
-  useEffect(() => { if (startDate && endDate) loadSummary() }, [startDate, endDate])
+    loadSummary()
+  }, [startDate, endDate])
 
   return (
     <div>
       <TabNavigation />
       <main className="p-6 max-w-4xl mx-auto">
-        {/* ✅ UI 생략 가능, 정산 페이지 확인되면 확장 */}
-        <h1 className="text-xl font-bold text-blue-700">tab3 정상 작동 확인</h1>
+        <h1 className="text-xl font-bold mb-6 text-blue-700">💸 기사별 정산 PDF 출력 (tab3)</h1>
+
+        <div className="flex flex-wrap gap-4 mb-6">
+          <div>
+            <label>시작일</label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border p-2" />
+          </div>
+          <div>
+            <label>종료일</label>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border p-2" />
+          </div>
+          <div>
+            <label>기사 선택</label>
+            <select value={selectedUid} onChange={e => setSelectedUid(e.target.value)} className="border p-2 w-72">
+              <option value="">기사 선택</option>
+              {driverList.map(d => (
+                <option key={d.uid} value={d.uid}>{d.email} / {d.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {selectedDriver && (
+          <div className="border p-4 rounded bg-gray-50">
+            <p className="mb-2 text-sm">총 건수: {selectedDriver.totalCount}건</p>
+            <p className="mb-4 text-sm">기사 수익: {selectedDriver.driverIncome.toLocaleString()}원</p>
+            <PDFDownloadLink
+              document={<MyPDF data={selectedDriver} />}
+              fileName={`정산서_${selectedDriver.name}_${startDate}_${endDate}.pdf`}
+            >
+              {({ loading }) => (
+                <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+                  {loading ? 'PDF 생성 중...' : '📄 PDF 다운로드'}
+                </button>
+              )}
+            </PDFDownloadLink>
+          </div>
+        )}
       </main>
     </div>
   )
