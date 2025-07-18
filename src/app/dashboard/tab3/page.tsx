@@ -1,305 +1,153 @@
 'use client'
 
-import { useState, useEffect, ChangeEvent, useRef } from 'react'
-import useRoleGuard from '@/hooks/useRoleGuard'
-import { db } from '@/lib/firebase'
-import {
-  collection, query, where, getDocs,
-  doc, getDoc, setDoc
-} from 'firebase/firestore'
+import { useState, useEffect, ChangeEvent } from 'react'
+import { auth, db } from '@/lib/firebase'
+import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { collection, doc, setDoc, getDocs } from 'firebase/firestore'
 import TabNavigation from '@/components/TabNavigation'
-import notoVfs from '@/lib/fonts/noto-vfs'
+import useRoleGuard from '@/hooks/useRoleGuard'
 
-interface Driver {
+interface User {
   uid: string
   email: string
   name: string
+  itkooId: string
+  role: 'admin' | 'driver'
 }
 
-interface RecordData {
-  uid: string
-  email: string
-  name: string
-  route: string
-  coupangId: string
-  deliveryCount: number
-  returnCount: number
-}
-
-interface RouteUnit {
-  driverUnitPrice: number
-}
-
-interface Summary {
-  uid: string
-  email: string
-  name: string
-  ids: Set<string>
-  routes: Set<string>
-  totalDelivery: number
-  totalReturn: number
-  totalCount: number
-  driverIncome: number
-}
-
-export default function Tab3() {
+export default function Tab7() {
   useRoleGuard('admin')
 
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [driverList, setDriverList] = useState<Driver[]>([])
-  const [summary, setSummary] = useState<Summary[]>([])
-  const [selectedUid, setSelectedUid] = useState('')
-  const [deductions, setDeductions] = useState<Record<string, Partial<Deductions>>>({})
-  const pdfMakeRef = useRef<any>(null)
+  const [form, setForm] = useState({
+    email: '',
+    password: '',
+    name: '',
+    itkooId: '',
+    role: 'driver' as 'admin' | 'driver',
+  })
+  const [message, setMessage] = useState('')
+  const [userList, setUserList] = useState<User[]>([])
 
-  interface Deductions {
-    insEmp: number
-    insInd: number
-    rental: number
-    damage: number
-    etc: number
-    freshback: number
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setForm({ ...form, [e.target.name]: e.target.value })
   }
 
-  const selectedDriver = summary.find((d) => d.uid === selectedUid)
+  const handleSubmit = async () => {
+    const { email, password, name, itkooId, role } = form
+    if (!email || !password || !name || !itkooId || !role) {
+      alert('❗ 모든 항목을 입력해주세요.')
+      return
+    }
+    if (password.length < 6) {
+      alert('❗ 비밀번호는 최소 6자 이상이어야 합니다.')
+      return
+    }
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      const uid = userCredential.user.uid
+
+      await setDoc(doc(db, 'Users', uid), {
+        uid,
+        email,
+        name,
+        itkooId,
+        role
+      })
+
+      setMessage(`✅ 등록 완료: ${email} (${uid})`)
+      setForm({ email: '', password: '', name: '', itkooId: '', role: 'driver' })
+      await loadUsers()
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error(err)
+        setMessage(`❌ 등록 실패: ${err.message}`)
+      }
+    }
+  }
+
+  const loadUsers = async () => {
+    const snap = await getDocs(collection(db, 'Users'))
+    const list = snap.docs.map(doc => doc.data() as User)
+    setUserList(list)
+  }
 
   useEffect(() => {
-    const loadPdfMake = async () => {
-      const pdfMakeModule = await import('pdfmake/build/pdfmake')
-      const pdfMake = pdfMakeModule.default || pdfMakeModule
-      pdfMake.vfs = notoVfs
-      pdfMake.fonts = {
-        NotoSans: {
-          normal: 'NotoSansKR-Regular.ttf',
-          bold: 'NotoSansKR-Regular.ttf',
-          italics: 'NotoSansKR-Regular.ttf',
-          bolditalics: 'NotoSansKR-Regular.ttf'
-        }
-      }
-      pdfMakeRef.current = pdfMake
-    }
-    loadPdfMake()
+    loadUsers()
   }, [])
-
-  const handleDeductionChange = (field: keyof Deductions, value: string) => {
-    if (!selectedUid) return
-    setDeductions((prev) => ({
-      ...prev,
-      [selectedUid]: {
-        ...prev[selectedUid],
-        [field]: Number(value) || 0
-      }
-    }))
-  }
-
-  const handleSave = async () => {
-    if (!selectedDriver || !startDate || !endDate) return
-    const d = deductions[selectedDriver.uid] || {}
-    const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
-    const freshback = d.freshback || 0
-    const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
-    const docId = `${selectedDriver.uid}|${startDate}~${endDate}`
-
-    await setDoc(doc(db, 'FinalPayouts', docId), {
-      uid: selectedDriver.uid,
-      email: selectedDriver.email,
-      name: selectedDriver.name,
-      startDate,
-      endDate,
-      totalDelivery: selectedDriver.totalDelivery,
-      totalReturn: selectedDriver.totalReturn,
-      totalCount: selectedDriver.totalCount,
-      driverIncome: selectedDriver.driverIncome,
-      totalDeduction: totalDeduct,
-      freshback,
-      finalPay,
-      deductions: {
-        insEmp: d.insEmp || 0,
-        insInd: d.insInd || 0,
-        rental: d.rental || 0,
-        damage: d.damage || 0,
-        etc: d.etc || 0
-      },
-      createdAt: new Date()
-    })
-
-    alert('✅ 정산 결과 저장 완료')
-  }
-
-  const handleExportPDF = () => {
-    if (!pdfMakeRef.current || !selectedDriver) return
-    const d = deductions[selectedDriver.uid] || {}
-    const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
-    const freshback = d.freshback || 0
-    const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
-
-    const pdfMake = pdfMakeRef.current
-    const docDefinition = {
-      content: [
-        { text: '📄 잇쿠 기사 정산서', fontSize: 18, alignment: 'center', margin: [0, 0, 0, 10] },
-        { text: `기사명: ${selectedDriver.name} (${selectedDriver.email})`, margin: [0, 10, 0, 2] },
-        { text: `정산 기간: ${startDate} ~ ${endDate}`, margin: [0, 0, 0, 10] },
-        {
-          table: {
-            widths: ['*', '*'],
-            body: [
-              ['항목', '금액 (원)'],
-              ['배송 건수', selectedDriver.totalDelivery],
-              ['반품 건수', selectedDriver.totalReturn],
-              ['총 건수', selectedDriver.totalCount],
-              ['기사 수익', selectedDriver.driverIncome.toLocaleString()],
-              ['고용보험', (d.insEmp || 0).toLocaleString()],
-              ['산재보험', (d.insInd || 0).toLocaleString()],
-              ['운송지원비', (d.rental || 0).toLocaleString()],
-              ['파손/분실', (d.damage || 0).toLocaleString()],
-              ['기타 차감', (d.etc || 0).toLocaleString()],
-              ['프레시백 수익', freshback.toLocaleString()],
-              ['▶ 실지급액', finalPay.toLocaleString()]
-            ]
-          },
-          layout: 'lightHorizontalLines',
-          margin: [0, 10, 0, 0]
-        }
-      ],
-      defaultStyle: { font: 'NotoSans' }
-    }
-
-    pdfMake.createPdf(docDefinition).download(`정산서_${selectedDriver.name}_${startDate}_${endDate}.pdf`)
-  }
-
-  const loadDrivers = async () => {
-    const snap = await getDocs(collection(db, 'Users'))
-    const list = snap.docs.map(doc => ({ uid: doc.id, ...(doc.data() as Omit<Driver, 'uid'>) }))
-    setDriverList(list)
-  }
-
-  const loadSummary = async () => {
-    if (!startDate || !endDate) return
-    const q = query(collection(db, 'DailyRecords'), where('deliveryDate', '>=', startDate), where('deliveryDate', '<=', endDate))
-    const snap = await getDocs(q)
-    const raw: RecordData[] = snap.docs.map(doc => doc.data() as RecordData)
-
-    const map: Record<string, Summary> = {}
-
-    for (const item of raw) {
-      const key = item.uid
-      if (!map[key]) {
-        map[key] = {
-          uid: key,
-          email: item.email,
-          name: item.name,
-          ids: new Set(),
-          routes: new Set(),
-          totalDelivery: 0,
-          totalReturn: 0,
-          totalCount: 0,
-          driverIncome: 0
-        }
-      }
-
-      const delivery = Number(item.deliveryCount)
-      const returns = Number(item.returnCount)
-      const total = delivery + returns
-
-      const unitKey = `${item.route}_${item.coupangId}`.toUpperCase()
-      const unitSnap = await getDoc(doc(db, 'Routes', unitKey))
-      const price = unitSnap.exists() ? (unitSnap.data() as RouteUnit).driverUnitPrice : 0
-
-      map[key].routes.add(item.route)
-      map[key].ids.add(item.coupangId)
-      map[key].totalDelivery += delivery
-      map[key].totalReturn += returns
-      map[key].totalCount += total
-      map[key].driverIncome += total * price
-    }
-
-    setSummary(Object.values(map))
-  }
-
-  useEffect(() => { loadDrivers() }, [])
-  useEffect(() => { if (startDate && endDate) loadSummary() }, [startDate, endDate])
 
   return (
     <div>
       <TabNavigation />
-      <main className="p-6 max-w-4xl mx-auto">
-        <h1 className="text-xl font-bold mb-4 text-blue-700">💸 기사별 실지급 정산 (tab3)</h1>
+      <main className="p-6 max-w-2xl mx-auto">
+        <h1 className="text-2xl font-bold mb-6 text-indigo-700">👤 기사 등록 (tab7)</h1>
 
-        <div className="flex flex-wrap gap-4 mb-6">
+        <div className="space-y-4 bg-white shadow p-6 rounded-lg border border-gray-200">
           <div>
-            <label>시작일</label>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="border p-2" />
+            <label className="block text-sm font-semibold text-gray-700">이메일</label>
+            <input name="email" type="email" value={form.email} onChange={handleChange} className="border rounded px-3 py-2 w-full" />
           </div>
+
           <div>
-            <label>종료일</label>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border p-2" />
+            <label className="block text-sm font-semibold text-gray-700">비밀번호</label>
+            <input name="password" type="password" value={form.password} onChange={handleChange} className="border rounded px-3 py-2 w-full" />
           </div>
+
           <div>
-            <label>기사 선택</label>
-            <select value={selectedUid} onChange={(e) => setSelectedUid(e.target.value)} className="border p-2 w-72">
-              <option value="">기사 선택</option>
-              {driverList.map(d => (
-                <option key={d.uid} value={d.uid}>{d.email} / {d.name}</option>
-              ))}
+            <label className="block text-sm font-semibold text-gray-700">이름</label>
+            <input name="name" type="text" value={form.name} onChange={handleChange} className="border rounded px-3 py-2 w-full" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700">잇쿠 ID</label>
+            <input name="itkooId" type="text" value={form.itkooId} onChange={handleChange} className="border rounded px-3 py-2 w-full" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700">역할</label>
+            <select name="role" value={form.role} onChange={handleChange} className="border rounded px-3 py-2 w-full">
+              <option value="driver">driver</option>
+              <option value="admin">admin</option>
             </select>
           </div>
+
+          <button
+            onClick={handleSubmit}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded w-full"
+          >
+            등록하기
+          </button>
+
+          {message && <p className="mt-4 text-sm text-center font-medium text-green-600 whitespace-pre-wrap">{message}</p>}
         </div>
 
-        {selectedDriver ? (() => {
-          const d = deductions[selectedDriver.uid] || {}
-          const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
-          const freshback = d.freshback || 0
-          const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
+        <hr className="my-8" />
 
-          return (
-            <div className="border p-4 rounded bg-gray-50">
-              <h2 className="font-bold text-blue-600 mb-2">
-                👤 {selectedDriver.name} / {selectedDriver.email}
-              </h2>
-              <p className="text-sm text-gray-600 mb-2">
-                쿠팡ID: {Array.from(selectedDriver.ids).join(', ')}<br />
-                노선: {Array.from(selectedDriver.routes).join(', ')}
-              </p>
-
-              <p className="text-sm font-semibold mb-4">
-                📦 배송: {selectedDriver.totalDelivery}건 / 반품: {selectedDriver.totalReturn}건<br />
-                💰 기사수익: {selectedDriver.driverIncome.toLocaleString()}원
-              </p>
-
-              <div className="grid gap-3 text-sm">
-                {[
-                  ['고용보험', 'insEmp'],
-                  ['산재보험', 'insInd'],
-                  ['운송지원비', 'rental'],
-                  ['파손/분실', 'damage'],
-                  ['기타 공제', 'etc'],
-                  ['프레시백 수익', 'freshback']
-                ].map(([label, key]) => (
-                  <div key={key} className="flex justify-between items-center">
-                    <label>{label}</label>
-                    <input
-                      type="number"
-                      value={d[key as keyof Deductions] ?? ''}
-                      onChange={(e) => handleDeductionChange(key as keyof Deductions, e.target.value)}
-                      className="border p-1 w-40 text-right"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4 p-3 bg-green-100 border text-green-700 font-bold rounded">
-                ▶ 실지급액: {finalPay.toLocaleString()}원
-              </div>
-
-              <div className="flex gap-2 mt-4">
-                <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">💾 저장</button>
-                <button onClick={handleExportPDF} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">📄 PDF 출력</button>
-              </div>
-            </div>
-          )
-        })() : (
-          <p className="text-gray-500 mt-4">기사와 기간을 선택하면 실지급 정보를 확인할 수 있습니다.</p>
+        <h2 className="text-xl font-bold mb-3 text-gray-800">📋 등록된 사용자 목록</h2>
+        {userList.length === 0 ? (
+          <p className="text-gray-500 text-sm">등록된 사용자가 없습니다.</p>
+        ) : (
+          <table className="w-full text-sm border shadow-sm rounded overflow-hidden">
+            <thead>
+              <tr className="bg-gray-100 text-center">
+                <th className="border p-2">이름</th>
+                <th className="border p-2">이메일</th>
+                <th className="border p-2">itkooId</th>
+                <th className="border p-2">역할</th>
+                <th className="border p-2">UID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {userList.map((u, i) => (
+                <tr key={i} className="text-center">
+                  <td className="border p-1">{u.name}</td>
+                  <td className="border p-1">{u.email}</td>
+                  <td className="border p-1">{u.itkooId}</td>
+                  <td className="border p-1">{u.role}</td>
+                  <td className="border p-1 text-xs text-gray-400">{u.uid}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </main>
     </div>
