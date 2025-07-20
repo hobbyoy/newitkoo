@@ -126,6 +126,21 @@ export default function Tab3Client() {
       ],
       defaultStyle: { font: 'NotoSans' }
     }
+const loadDrivers = async () => {
+  try {
+    const snap = await getDocs(collection(db, 'Users'))
+    const list = snap.docs.map(doc => ({
+      uid: doc.id,
+      ...(doc.data() as Omit<Driver, 'uid'>)
+    }))
+    setDriverList(list)
+  } catch (err) {
+    console.error('❌ 기사 불러오기 오류:', err)
+  } 
+}
+useEffect(() => {
+  loadDrivers()
+}, [])
 
     pdfMake.createPdf(docDefinition).download(`정산서_${selectedDriver.name}_${startDate}_${endDate}.pdf`)
   }
