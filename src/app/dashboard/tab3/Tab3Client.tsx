@@ -163,7 +163,7 @@ export default function Tab3Client() {
         map[key].totalReturn += returns
         map[key].totalCount += total
         map[key].driverIncome += total * unit.driverUnitPrice
-        map[key].totalFee += total * unit.coupangUnitPrice
+        map[key].totalFee += total * (unit.coupangUnitPrice - unit.driverUnitPrice)
       }
 
       setSummary(Object.values(map))
@@ -194,7 +194,7 @@ export default function Tab3Client() {
               ['반품 건수', selectedDriver.totalReturn],
               ['총 건수', selectedDriver.totalCount],
               ['기사 수익', selectedDriver.driverIncome.toLocaleString()],
-              ['총수수료', selectedDriver.totalFee.toLocaleString()],
+              ['잇쿠 수익 (단가차익)', selectedDriver.totalFee.toLocaleString()],
               ['고용보험', (d.insEmp || 0).toLocaleString()],
               ['산재보험', (d.insInd || 0).toLocaleString()],
               ['운송지원비', (d.rental || 0).toLocaleString()],
@@ -301,7 +301,7 @@ export default function Tab3Client() {
               <p className="text-sm mb-3 font-medium">
                 📦 배송: {selectedDriver.totalDelivery}건 / 반품: {selectedDriver.totalReturn}건 / 총 {selectedDriver.totalCount}건<br />
                 💰 기사수익: {selectedDriver.driverIncome.toLocaleString()}원<br />
-                📈 총수수료(쿠팡 기준): {selectedDriver.totalFee.toLocaleString()}원
+                📈 잇쿠 수익 (단가차익): {selectedDriver.totalFee.toLocaleString()}원
               </p>
 
               <div className="grid gap-3 text-sm bg-gray-50 p-4 rounded border">
