@@ -3,7 +3,15 @@
 
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { db } from '@/lib/firebase'
-import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore'
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  getDoc,
+  setDoc
+} from 'firebase/firestore'
 import useRoleGuard from '@/hooks/useRoleGuard'
 import TabNavigation from '@/components/TabNavigation'
 import notoVfs from '@/lib/fonts/noto-vfs'
@@ -12,6 +20,21 @@ interface Driver {
   uid: string
   email: string
   name: string
+}
+
+interface RecordData {
+  uid: string
+  email: string
+  name: string
+  route: string
+  coupangId: string
+  deliveryCount: number
+  returnCount: number
+}
+
+interface RouteUnit {
+  driverUnitPrice: number
+  coupangUnitPrice: number
 }
 
 interface Summary {
@@ -55,10 +78,13 @@ export default function Tab3Client() {
   const [deductions, setDeductions] = useState<Record<string, Partial<Deductions>>>({})
   const pdfMakeRef = useRef<PdfMakeType | null>(null)
 
-  const selectedDriver = useMemo(() => summary.find(d => d.uid === selectedUid), [summary, selectedUid])
+  const selectedDriver = useMemo(
+    () => summary.find(d => d.uid === selectedUid),
+    [summary, selectedUid]
+  )
 
   useEffect(() => {
-    const loadPDFMake = async () => {
+    const load = async () => {
       const m = await import('pdfmake/build/pdfmake')
       const pdfMake = m.default || m
       pdfMake.vfs = notoVfs
@@ -72,7 +98,7 @@ export default function Tab3Client() {
       }
       pdfMakeRef.current = pdfMake
     }
-    loadPDFMake()
+    load()
   }, [])
 
   useEffect(() => {
@@ -90,6 +116,61 @@ export default function Tab3Client() {
     }
     loadDrivers()
   }, [])
+
+  useEffect(() => {
+    if (!startDate || !endDate) return
+
+    const loadSummary = async () => {
+      const q = query(
+        collection(db, 'DailyRecords'),
+        where('deliveryDate', '>=', startDate),
+        where('deliveryDate', '<=', endDate)
+      )
+      const snap = await getDocs(q)
+      const raw = snap.docs.map(doc => doc.data()) as RecordData[]
+
+      const map: Record<string, Summary> = {}
+
+      for (const item of raw) {
+        const key = item.uid
+        if (!map[key]) {
+          map[key] = {
+            uid: item.uid,
+            email: item.email,
+            name: item.name,
+            ids: new Set(),
+            routes: new Set(),
+            totalDelivery: 0,
+            totalReturn: 0,
+            totalCount: 0,
+            driverIncome: 0,
+            totalFee: 0
+          }
+        }
+
+        const delivery = item.deliveryCount
+        const returns = item.returnCount
+        const total = delivery + returns
+        const routeKey = `${item.route}_${item.coupangId}`.toUpperCase()
+        const routeSnap = await getDoc(doc(db, 'Routes', routeKey))
+        const unit = routeSnap.exists()
+          ? (routeSnap.data() as RouteUnit)
+          : { driverUnitPrice: 0, coupangUnitPrice: 0 }
+
+        map[key].ids.add(item.coupangId)
+        map[key].routes.add(item.route)
+        map[key].totalDelivery += delivery
+        map[key].totalReturn += returns
+        map[key].totalCount += total
+        map[key].driverIncome += total * unit.driverUnitPrice
+        map[key].totalFee += total * unit.coupangUnitPrice
+      }
+
+      setSummary(Object.values(map))
+    }
+
+    loadSummary()
+  }, [startDate, endDate])
 
   const exportPDF = () => {
     const pdfMake = pdfMakeRef.current
