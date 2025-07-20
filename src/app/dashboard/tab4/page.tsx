@@ -51,30 +51,18 @@ export default function Tab4() {
       const snap = await getDocs(q)
       const result: FinalPayout[] = []
       const savedMap: Record<string, boolean> = {}
-      const deductionMap: Record<string, Partial<Deductions>> = {}
 
       for (const docSnap of snap.docs) {
-        const data = docSnap.data() as any
-        result.push({
-          uid: data.uid,
-          name: data.name,
-          email: data.email,
-          totalFee: data.itkooFee ?? data.totalFee, // 🔹 운영자 수익 기준 표시
-          startDate: data.startDate,
-          endDate: data.endDate
-        })
-        savedMap[data.uid] = true
-        deductionMap[data.uid] = {
-          insEmp: data.deductions?.insEmp ?? 0,
-          insInd: data.deductions?.insInd ?? 0,
-          rental: data.deductions?.rental ?? 0,
-          etc: data.deductions?.etc ?? 0
-        }
+        const data = docSnap.data() as FinalPayout
+        result.push(data)
+
+        const payoutRef = doc(db, 'ItkooPayouts', `${data.uid}_${startDate}_${endDate}`)
+        const exist = await getDoc(payoutRef)
+        savedMap[data.uid] = exist.exists()
       }
 
       setPayouts(result)
       setSaved(savedMap)
-      setDeductions(deductionMap)
     } catch (error) {
       console.error('❌ Error loading payouts:', error)
     }
@@ -96,7 +84,7 @@ export default function Tab4() {
     const insInd = deduction.insInd || 0
     const rental = deduction.rental || 0
     const etc = deduction.etc || 0
-    const finalNet = data.totalFee - insEmp - insInd - rental - etc
+    const finalNet = (data.totalFee ?? 0) - insEmp - insInd - rental - etc
 
     try {
       await setDoc(doc(db, 'ItkooPayouts', `${data.uid}_${startDate}_${endDate}`), {
@@ -105,7 +93,7 @@ export default function Tab4() {
         email: data.email,
         startDate,
         endDate,
-        totalFee: data.totalFee,
+        totalFee: data.totalFee ?? 0,
         insEmp,
         insInd,
         rental,
@@ -123,7 +111,7 @@ export default function Tab4() {
     <div>
       <TabNavigation />
       <main className="p-6 max-w-6xl mx-auto">
-        <h1 className="text-xl font-bold mb-6 text-blue-700">💼 기사별 최종 수익 정산 (Tab4)</h1>
+        <h1 className="text-xl font-bold mb-6 text-blue-700">💼 기사별 수수료 계산 (Tab4)</h1>
 
         <div className="flex gap-4 mb-6">
           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="border px-2 py-1 rounded" />
@@ -139,7 +127,7 @@ export default function Tab4() {
               <tr>
                 <th className="border p-2">기사명</th>
                 <th className="border p-2">이메일</th>
-                <th className="border p-2">잇쿠 수익</th>
+                <th className="border p-2">총수수료</th>
                 <th className="border p-2">산재</th>
                 <th className="border p-2">고용</th>
                 <th className="border p-2">용차</th>
@@ -155,13 +143,13 @@ export default function Tab4() {
                 const insInd = d.insInd || 0
                 const rental = d.rental || 0
                 const etc = d.etc || 0
-                const finalNet = p.totalFee - insEmp - insInd - rental - etc
+                const finalNet = (p.totalFee ?? 0) - insEmp - insInd - rental - etc
 
                 return (
                   <tr key={p.uid} className="text-center border-t">
                     <td className="border p-2">{p.name}</td>
                     <td className="border p-2">{p.email}</td>
-                    <td className="border p-2">{p.totalFee.toLocaleString()}</td>
+                    <td className="border p-2">{(p.totalFee ?? 0).toLocaleString()}</td>
                     {[['insEmp', insEmp], ['insInd', insInd], ['rental', rental], ['etc', etc]].map(([key, val]) => (
                       <td className="border p-2" key={key}>
                         <input
@@ -174,7 +162,7 @@ export default function Tab4() {
                         />
                       </td>
                     ))}
-                    <td className="border p-2 font-semibold text-green-700">{finalNet.toLocaleString()}</td>
+                    <td className="border p-2 font-semibold text-green-700">{(finalNet ?? 0).toLocaleString()}</td>
                     <td className="border p-2">
                       {saved[p.uid] ? '✅ 저장됨' : (
                         <button onClick={() => handleSave(p)} className="bg-blue-500 text-white px-2 py-1 rounded">저장</button>
