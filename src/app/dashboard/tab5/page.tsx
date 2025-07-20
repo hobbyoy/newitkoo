@@ -9,7 +9,8 @@ import {
   where,
   getDocs,
   setDoc,
-  doc
+  doc,
+  DocumentData
 } from 'firebase/firestore'
 import useRoleGuard from '@/hooks/useRoleGuard'
 import TabNavigation from '@/components/TabNavigation'
@@ -23,53 +24,61 @@ export default function Tab5() {
   const [totalDriverFreshback, setTotalDriverFreshback] = useState(0)
   const [netFreshback, setNetFreshback] = useState(0)
   const [saved, setSaved] = useState(false)
-  const [existingData, setExistingData] = useState<any>(null)
+  const [existing, setExisting] = useState<null | {
+    inputFreshback: number
+    totalDriverFreshback: number
+    netFreshback: number
+    createdAt: string
+  }>(null)
+
+  const loadDriverFreshbacks = async () => {
+    if (!startDate || !endDate) return
+
+    const q1 = query(
+      collection(db, 'FinalPayouts'),
+      where('startDate', '==', startDate),
+      where('endDate', '==', endDate)
+    )
+    const snap1 = await getDocs(q1)
+    let total = 0
+    snap1.forEach(doc => {
+      const data = doc.data() as DocumentData
+      total += data.freshback || 0
+    })
+    setTotalDriverFreshback(total)
+
+    const q2 = query(
+      collection(db, 'ItkooFreshbackProfits'),
+      where('startDate', '==', startDate),
+      where('endDate', '==', endDate)
+    )
+    const snap2 = await getDocs(q2)
+    if (!snap2.empty) {
+      const d = snap2.docs[0].data()
+      setInputFreshback(String(d.inputFreshback || ''))
+      setNetFreshback((d.inputFreshback || 0) - (d.totalDriverFreshback || 0))
+      setExisting({
+        inputFreshback: d.inputFreshback || 0,
+        totalDriverFreshback: d.totalDriverFreshback || 0,
+        netFreshback: d.netFreshback || 0,
+        createdAt: d.createdAt?.toDate?.().toLocaleString() || ''
+      })
+      setSaved(true)
+    } else {
+      setExisting(null)
+      setSaved(false)
+    }
+  }
 
   useEffect(() => {
-    const loadDriverFreshbacks = async () => {
-      if (!startDate || !endDate) return
-      const q = query(
-        collection(db, 'FinalPayouts'),
-        where('startDate', '==', startDate),
-        where('endDate', '==', endDate)
-      )
-      const snap = await getDocs(q)
-      let total = 0
-      snap.forEach(doc => {
-        const data = doc.data()
-        total += data.freshback || 0
-      })
-      setTotalDriverFreshback(total)
-    }
     loadDriverFreshbacks()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate])
 
   useEffect(() => {
     const inputValue = Number(inputFreshback) || 0
     setNetFreshback(inputValue - totalDriverFreshback)
   }, [inputFreshback, totalDriverFreshback])
-
-  useEffect(() => {
-    const fetchExisting = async () => {
-      if (!startDate || !endDate) return
-      const q = query(
-        collection(db, 'ItkooFreshbackProfits'),
-        where('startDate', '==', startDate),
-        where('endDate', '==', endDate)
-      )
-      const snap = await getDocs(q)
-      if (!snap.empty) {
-        const data = snap.docs[0].data()
-        setExistingData(data)
-        setInputFreshback(String(data.inputFreshback || ''))
-        setSaved(true)
-      } else {
-        setExistingData(null)
-        setSaved(false)
-      }
-    }
-    fetchExisting()
-  }, [startDate, endDate])
 
   const handleSave = async () => {
     if (!startDate || !endDate || !inputFreshback) return
@@ -82,8 +91,14 @@ export default function Tab5() {
         netFreshback,
         createdAt: new Date()
       })
-      setSaved(true)
       alert('✅ 저장 완료')
+      setSaved(true)
+      setExisting({
+        inputFreshback: Number(inputFreshback),
+        totalDriverFreshback,
+        netFreshback,
+        createdAt: new Date().toLocaleString()
+      })
     } catch (err) {
       console.error('❌ 저장 실패:', err)
       alert('❌ 저장 실패')
@@ -122,16 +137,20 @@ export default function Tab5() {
               <span>💼 잇쿠 프레시백 수익 (차액)</span>
               <span>{netFreshback.toLocaleString()} 원</span>
             </div>
-
-            {existingData && (
-              <div className="mt-4 p-3 bg-gray-100 border rounded text-sm text-gray-700">
-                <p>📦 저장된 기록:</p>
-                <p>• 입력 프레시백: {existingData.inputFreshback?.toLocaleString()} 원</p>
-                <p>• 기사 프레시백 합계: {existingData.totalDriverFreshback?.toLocaleString()} 원</p>
-                <p>• 차익 수익: {existingData.netFreshback?.toLocaleString()} 원</p>
-              </div>
-            )}
           </div>
+
+          {existing && (
+            <div className="mt-6 text-sm text-gray-600 bg-gray-50 border-t pt-3 px-2">
+              <p>📦 저장된 기록:</p>
+              <ul className="list-disc ml-5">
+                <li>입력 프레시백: {existing.inputFreshback.toLocaleString()} 원</li>
+                <li>기사 합계 프레시백: {existing.totalDriverFreshback.toLocaleString()} 원</li>
+                <li>차익: {existing.netFreshback.toLocaleString()} 원</li>
+                <li>저장 시각: {existing.createdAt}</li>
+              </ul>
+            </div>
+          )}
+
           <div className="mt-6 text-right">
             <button
               onClick={handleSave}
