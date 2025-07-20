@@ -163,7 +163,7 @@ export default function Tab3Client() {
         map[key].totalReturn += returns
         map[key].totalCount += total
         map[key].driverIncome += total * unit.driverUnitPrice
-        map[key].totalFee += total * unit.coupangUnitPrice
+        map[key].totalFee += total * (unit.coupangUnitPrice - unit.driverUnitPrice)
       }
 
       setSummary(Object.values(map))
@@ -193,13 +193,12 @@ export default function Tab3Client() {
               ['배송 건수', selectedDriver.totalDelivery],
               ['반품 건수', selectedDriver.totalReturn],
               ['총 건수', selectedDriver.totalCount],
-              ['기사 수익', selectedDriver.driverIncome.toLocaleString()],
-              ['총수수료', selectedDriver.totalFee.toLocaleString()],
-              ['고용보험', (d.insEmp || 0).toLocaleString()],
-              ['산재보험', (d.insInd || 0).toLocaleString()],
-              ['운송지원비', (d.rental || 0).toLocaleString()],
-              ['파손/분실', (d.damage || 0).toLocaleString()],
-              ['기타 차감', (d.etc || 0).toLocaleString()],
+              ['수행 실적 금액', selectedDriver.driverIncome.toLocaleString()],
+              ['- 고용보험', `-${(d.insEmp || 0).toLocaleString()}`],
+              ['- 산재보험', `-${(d.insInd || 0).toLocaleString()}`],
+              ['- 운송지원비', `-${(d.rental || 0).toLocaleString()}`],
+              ['- 파손/분실', `-${(d.damage || 0).toLocaleString()}`],
+              ['- 기타 차감', `-${(d.etc || 0).toLocaleString()}`],
               ['프레시백 수익', freshback.toLocaleString()],
               ['▶ 실지급액', finalPay.toLocaleString()]
             ]
@@ -212,6 +211,7 @@ export default function Tab3Client() {
 
     pdfMake.createPdf(docDefinition).download(`정산서_${selectedDriver.name}_${startDate}_${endDate}.pdf`)
   }
+
 
   const handleDeductionChange = (field: keyof Deductions, value: string) => {
     if (!selectedUid) return
