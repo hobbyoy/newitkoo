@@ -20,8 +20,18 @@ interface SummaryData {
   itkooFee: number
   freshIn: number
   freshOut: number
-  opDeduction: number
-  fixedCost: number
+  opDeductions: {
+    insOp: number
+    empOp: number
+    rentalOp: number
+    etcOp: number
+  }
+  fixedCosts: {
+    tax: number
+    card: number
+    rent: number
+    etcFixed: number
+  }
   totalRevenueA: number
   totalExpenseA: number
   calcA: number
@@ -101,22 +111,22 @@ export default function Tab6() {
       )
     )
 
-    let insOpSum = 0
-    let empOpSum = 0
-    let rentalOpSum = 0
-    let etcOpSum = 0
+    let insOp = 0
+    let empOp = 0
+    let rentalOp = 0
+    let etcOp = 0
     let finalNetSum = 0
 
     payoutOpSnap.forEach(doc => {
       const data = doc.data()
-      insOpSum += data.insOp || 0
-      empOpSum += data.empOp || 0
-      rentalOpSum += data.rentalOp || 0
-      etcOpSum += data.etcOp || 0
+      insOp += data.insOp || 0
+      empOp += data.empOp || 0
+      rentalOp += data.rentalOp || 0
+      etcOp += data.etcOp || 0
       finalNetSum += data.finalNet || 0
     })
 
-    const opDeduction = insOpSum + empOpSum + rentalOpSum + etcOpSum
+    const opDeduction = insOp + empOp + rentalOp + etcOp
     const fixedCost = inputs.tax + inputs.card + inputs.rent + inputs.etcFixed
 
     const totalExpenseA = driverCost + freshOut + opDeduction + fixedCost
@@ -135,8 +145,8 @@ export default function Tab6() {
       itkooFee: coupangRevenue - driverCost,
       freshIn,
       freshOut,
-      opDeduction,
-      fixedCost,
+      opDeductions: { insOp, empOp, rentalOp, etcOp },
+      fixedCosts: { ...inputs },
       totalRevenueA,
       totalExpenseA,
       calcA,
@@ -181,65 +191,58 @@ export default function Tab6() {
   }
 
   return (
-    <div className="bg-gradient-to-tr from-gray-50 to-white min-h-screen text-gray-800">
+    <div className="bg-gray-50 min-h-screen">
       <TabNavigation />
-      <main className="max-w-5xl mx-auto py-10 px-6">
-        <h1 className="text-3xl font-bold text-blue-700 mb-8">💰 잇쿠 최종 손익 요약 (Tab6)</h1>
+      <main className="max-w-5xl mx-auto p-6">
+        <h1 className="text-2xl font-bold text-blue-700 mb-6">💰 잇쿠 최종 손익 요약 (Tab6)</h1>
 
-        <section className="bg-white shadow rounded-lg p-6 border mb-6">
-          <div className="flex flex-wrap gap-4 mb-4">
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border p-2 rounded w-40" />
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border p-2 rounded w-40" />
-            <button onClick={calculate} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded">📊 계산</button>
-            <button onClick={handleSave} className={`px-4 py-2 rounded text-white ${saved ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`} disabled={saved}>
-              {saved ? '✅ 저장됨' : '💾 저장'}
-            </button>
+        <div className="flex gap-4 mb-6">
+          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border p-2 rounded w-40" />
+          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border p-2 rounded w-40" />
+          <button onClick={calculate} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded">📊 계산</button>
+          <button onClick={handleSave} disabled={saved} className={`px-4 py-2 rounded text-white ${saved ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}>
+            {saved ? '✅ 저장됨' : '💾 저장'}
+          </button>
+        </div>
+
+        {summary && (
+          <div className="grid md:grid-cols-2 gap-4 text-sm">
+            <div className="bg-white border p-4 rounded-xl shadow">
+              <h2 className="font-semibold text-blue-700 mb-2">📈 수익 항목</h2>
+              <ul className="space-y-1">
+                <li className="flex justify-between"><span>쿠팡 수익</span><span>{summary.coupangRevenue.toLocaleString()} 원</span></li>
+                <li className="flex justify-between"><span>프레시백 수익</span><span>{summary.freshIn.toLocaleString()} 원</span></li>
+                <li className="flex justify-between"><span>잇쿠 수수료 (차익)</span><span>{summary.itkooFee.toLocaleString()} 원</span></li>
+              </ul>
+            </div>
+
+            <div className="bg-white border p-4 rounded-xl shadow">
+              <h2 className="font-semibold text-red-700 mb-2">📉 비용 항목</h2>
+              <ul className="space-y-1">
+                <li className="flex justify-between"><span>- 기사 수익</span><span>-{summary.driverCost.toLocaleString()} 원</span></li>
+                <li className="flex justify-between"><span>- 프레시백 지급</span><span>-{summary.freshOut.toLocaleString()} 원</span></li>
+                <li className="flex justify-between"><span>- 산재보험</span><span>-{summary.opDeductions.insOp.toLocaleString()} 원</span></li>
+                <li className="flex justify-between"><span>- 고용보험</span><span>-{summary.opDeductions.empOp.toLocaleString()} 원</span></li>
+                <li className="flex justify-between"><span>- 용차비</span><span>-{summary.opDeductions.rentalOp.toLocaleString()} 원</span></li>
+                <li className="flex justify-between"><span>- 기타 공제</span><span>-{summary.opDeductions.etcOp.toLocaleString()} 원</span></li>
+                <li className="flex justify-between"><span>- 세금</span><span>-{summary.fixedCosts.tax.toLocaleString()} 원</span></li>
+                <li className="flex justify-between"><span>- 카드</span><span>-{summary.fixedCosts.card.toLocaleString()} 원</span></li>
+                <li className="flex justify-between"><span>- 고정비</span><span>-{summary.fixedCosts.rent.toLocaleString()} 원</span></li>
+                <li className="flex justify-between"><span>- 기타</span><span>-{summary.fixedCosts.etcFixed.toLocaleString()} 원</span></li>
+              </ul>
+            </div>
+
+            <div className="bg-green-50 border border-green-200 p-4 rounded-xl shadow md:col-span-2">
+              <h2 className="font-semibold text-green-800 mb-2">📊 계산 결과</h2>
+              <div className="grid grid-cols-2 text-sm gap-2">
+                <div className="flex justify-between"><span>총 수익 (A)</span><span>{summary.totalRevenueA.toLocaleString()} 원</span></div>
+                <div className="flex justify-between"><span>총 비용 (A)</span><span>{summary.totalExpenseA.toLocaleString()} 원</span></div>
+                <div className="flex justify-between font-bold text-blue-700 text-lg mt-2"><span>최종 수익 A</span><span>{summary.calcA.toLocaleString()} 원</span></div>
+                <div className="flex justify-between font-bold text-green-700 text-lg mt-2"><span>최종 수익 B</span><span>{summary.calcB.toLocaleString()} 원</span></div>
+              </div>
+            </div>
           </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-blue-50 border border-blue-300 rounded p-4">
-              <h2 className="text-md font-semibold text-blue-800 mb-2">📘 계산 방식 A (Raw 실적 기반)</h2>
-              {profitA !== null && <p className="text-2xl font-bold text-blue-900">{profitA.toLocaleString()} 원</p>}
-            </div>
-            <div className="bg-green-50 border border-green-300 rounded p-4">
-              <h2 className="text-md font-semibold text-green-800 mb-2">📗 계산 방식 B (정산값 기반)</h2>
-              {profitB !== null && <p className="text-2xl font-bold text-green-900">{profitB.toLocaleString()} 원</p>}
-            </div>
-          </div>
-
-          {difference !== null && (
-            <div className="mt-4 bg-yellow-100 border border-yellow-400 text-yellow-800 font-semibold p-3 rounded">
-              📐 계산 결과 차이: {difference.toLocaleString()} 원
-            </div>
-          )}
-
-          {summary && (
-            <div className="mt-6 bg-gray-50 border border-gray-200 p-4 rounded shadow-sm text-sm">
-              <h3 className="text-md font-semibold text-gray-700 mb-2">📋 요약 테이블</h3>
-              <table className="w-full text-sm border">
-                <tbody>
-                  <tr><td className="border p-2">쿠팡 수익</td><td className="border p-2 text-right">{summary.coupangRevenue.toLocaleString()} 원</td></tr>
-                  <tr><td className="border p-2">기사 비용</td><td className="border p-2 text-right">{summary.driverCost.toLocaleString()} 원</td></tr>
-                  <tr><td className="border p-2">잇쿠 수수료 (차익)</td><td className="border p-2 text-right">{summary.itkooFee.toLocaleString()} 원</td></tr>
-                  <tr><td className="border p-2">프레시백 수익</td><td className="border p-2 text-right">{summary.freshIn.toLocaleString()} 원</td></tr>
-                  <tr><td className="border p-2">프레시백 지급</td><td className="border p-2 text-right">{summary.freshOut.toLocaleString()} 원</td></tr>
-                  <tr><td className="border p-2">운영자 공제 합계</td><td className="border p-2 text-right">{summary.opDeduction.toLocaleString()} 원</td></tr>
-                  <tr><td className="border p-2">고정비 총합</td><td className="border p-2 text-right">{summary.fixedCost.toLocaleString()} 원</td></tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        <section className="bg-gray-50 p-5 rounded border">
-          <h3 className="text-md font-semibold text-gray-600 mb-4">🏢 고정비 / 세금 (수기입력)</h3>
-          {['tax', 'card', 'rent', 'etcFixed'].map(k => (
-            <div key={k} className="flex justify-between items-center mb-3">
-              <label className="w-32 capitalize font-medium text-gray-700">{k}</label>
-              <input type="number" className="border p-1 rounded w-40 text-right" value={inputs[k as keyof typeof inputs]} onChange={e => handleChange(k, e.target.value)} />
-            </div>
-          ))}
-        </section>
+        )}
       </main>
     </div>
   )
