@@ -19,16 +19,16 @@ interface FinalPayout {
   uid: string
   name: string
   email: string
-  totalFee: number
+  itkooFee: number
   startDate: string
   endDate: string
 }
 
 interface Deductions {
-  insEmp: number
-  insInd: number
-  rental: number
-  etc: number
+  insOp: number
+  empOp: number
+  rentalOp: number
+  etcOp: number
 }
 
 export default function Tab4() {
@@ -64,10 +64,10 @@ export default function Tab4() {
         if (exist.exists()) {
           const existingData = exist.data()
           deductionMap[data.uid] = {
-            insEmp: existingData.insEmp || 0,
-            insInd: existingData.insInd || 0,
-            rental: existingData.rental || 0,
-            etc: existingData.etc || 0
+            insOp: existingData.insOp || 0,
+            empOp: existingData.empOp || 0,
+            rentalOp: existingData.rentalOp || 0,
+            etcOp: existingData.etcOp || 0
           }
         }
       }
@@ -91,12 +91,12 @@ export default function Tab4() {
   }
 
   const handleSave = async (data: FinalPayout) => {
-    const deduction = deductions[data.uid] || {}
-    const insEmp = deduction.insEmp || 0
-    const insInd = deduction.insInd || 0
-    const rental = deduction.rental || 0
-    const etc = deduction.etc || 0
-    const finalNet = (data.totalFee ?? 0) - insEmp - insInd - rental - etc
+    const d = deductions[data.uid] || {}
+    const insOp = d.insOp || 0
+    const empOp = d.empOp || 0
+    const rentalOp = d.rentalOp || 0
+    const etcOp = d.etcOp || 0
+    const finalNet = (data.itkooFee ?? 0) - insOp - empOp - rentalOp - etcOp
 
     try {
       await setDoc(doc(db, 'ItkooPayouts', `${data.uid}_${startDate}_${endDate}`), {
@@ -105,11 +105,11 @@ export default function Tab4() {
         email: data.email,
         startDate,
         endDate,
-        totalFee: data.totalFee ?? 0,
-        insEmp,
-        insInd,
-        rental,
-        etc,
+        itkooFee: data.itkooFee ?? 0,
+        insOp,
+        empOp,
+        rentalOp,
+        etcOp,
         finalNet,
         createdAt: new Date()
       })
@@ -139,9 +139,9 @@ export default function Tab4() {
               <tr>
                 <th className="border p-2">기사명</th>
                 <th className="border p-2">이메일</th>
-                <th className="border p-2">총수수료</th>
-                <th className="border p-2">산재</th>
-                <th className="border p-2">고용</th>
+                <th className="border p-2">잇쿠 수수료</th>
+                <th className="border p-2">"산재보험(회사)"</th>
+                <th className="border p-2">"고용보험(회사)"</th>
                 <th className="border p-2">용차</th>
                 <th className="border p-2">기타</th>
                 <th className="border p-2">최종 수익</th>
@@ -151,18 +151,18 @@ export default function Tab4() {
             <tbody>
               {payouts.map(p => {
                 const d = deductions[p.uid] || {}
-                const insEmp = d.insEmp || 0
-                const insInd = d.insInd || 0
-                const rental = d.rental || 0
-                const etc = d.etc || 0
-                const finalNet = (p.totalFee ?? 0) - insEmp - insInd - rental - etc
+                const insOp = d.insOp || 0
+                const empOp = d.empOp || 0
+                const rentalOp = d.rentalOp || 0
+                const etcOp = d.etcOp || 0
+                const finalNet = (p.itkooFee ?? 0) - insOp - empOp - rentalOp - etcOp
 
                 return (
                   <tr key={p.uid} className="text-center border-t">
                     <td className="border p-2">{p.name}</td>
                     <td className="border p-2">{p.email}</td>
-                    <td className="border p-2">{(p.totalFee ?? 0).toLocaleString()}</td>
-                    {[['insEmp', insEmp], ['insInd', insInd], ['rental', rental], ['etc', etc]].map(([key, val]) => (
+                    <td className="border p-2">{(p.itkooFee ?? 0).toLocaleString()}</td>
+                    {[['insOp', insOp], ['empOp', empOp], ['rentalOp', rentalOp], ['etcOp', etcOp]].map(([key, val]) => (
                       <td className="border p-2" key={key}>
                         <input
                           type="number"
