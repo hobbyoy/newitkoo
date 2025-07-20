@@ -1,3 +1,4 @@
+// src/app/dashboard/tab3/Tab3Client.tsx
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
@@ -6,14 +7,6 @@ import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase
 import useRoleGuard from '@/hooks/useRoleGuard'
 import TabNavigation from '@/components/TabNavigation'
 import notoVfs from '@/lib/fonts/noto-vfs'
-
-type PdfMakeType = {
-  createPdf: (docDefinition: object) => {
-    download: (filename?: string) => void
-  }
-  vfs?: Record<string, string>
-  fonts?: unknown
-}
 
 interface Driver {
   uid: string
@@ -56,8 +49,17 @@ interface Deductions {
   freshback: number
 }
 
+type PdfMakeType = {
+  createPdf: (docDefinition: object) => {
+    download: (filename?: string) => void
+  }
+  vfs?: Record<string, string>
+  fonts?: unknown
+}
+
 export default function Tab3Client() {
   useRoleGuard('admin')
+
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [driverList, setDriverList] = useState<Driver[]>([])
@@ -100,28 +102,48 @@ export default function Tab3Client() {
     const freshback = d.freshback || 0
     const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
 
-    await setDoc(doc(db, 'FinalPayouts', `${selectedDriver.uid}|${startDate}~${endDate}`), {
-      ...selectedDriver,
-      startDate, endDate,
-      totalDelivery: selectedDriver.totalDelivery,
-      totalReturn: selectedDriver.totalReturn,
-      totalCount: selectedDriver.totalCount,
-      driverIncome: selectedDriver.driverIncome,
-      totalDeduction: totalDeduct,
-      freshback, finalPay,
-      deductions: {
-        insEmp: d.insEmp || 0,
-        insInd: d.insInd || 0,
-        rental: d.rental || 0,
-        damage: d.damage || 0,
-        etc: d.etc || 0
-      },
-      createdAt: new Date()
-    })
-    alert('✅ 저장 완료')
+    const docRef = doc(db, 'FinalPayouts', `${selectedDriver.uid}_${startDate}_${endDate}`)
+    const exists = await getDoc(docRef)
+    if (exists.exists()) {
+      alert('⚠️ 이미 저장된 정산 데이터입니다.')
+      return
+    }
+
+    try {
+      await setDoc(docRef, {
+        ...selectedDriver,
+        startDate,
+        endDate,
+        totalDelivery: selectedDriver.totalDelivery,
+        totalReturn: selectedDriver.totalReturn,
+        totalCount: selectedDriver.totalCount,
+        driverIncome: selectedDriver.driverIncome,
+        totalDeduction: totalDeduct,
+        freshback,
+        finalPay,
+        deductions: {
+          insEmp: d.insEmp || 0,
+          insInd: d.insInd || 0,
+          rental: d.rental || 0,
+          damage: d.damage || 0,
+          etc: d.etc || 0
+        },
+        createdAt: new Date()
+      })
+      alert('✅ 저장 완료')
+    } catch (err) {
+      console.error('❌ 저장 실패:', err)
+      alert('❌ 저장 중 오류가 발생했습니다.')
+    }
   }
 
-  const handleExportPDF = () => {
+  const loadDrivers = async () => {
+    const snap = await getDocs(collection(db, 'Users'))
+    const list = snap.docs.map(doc => ({ uid: doc.id, ...(doc.data() as Omit<Driver, 'uid'>) }))
+    setDriverList(list)
+  }
+
+  const exportPDF = () => {
     const pdfMake = pdfMakeRef.current
     if (!pdfMake || !selectedDriver) return
     const d = deductions[selectedDriver.uid] || {}
@@ -161,17 +183,10 @@ export default function Tab3Client() {
     pdfMake.createPdf(docDefinition).download(`정산서_${selectedDriver.name}_${startDate}_${endDate}.pdf`)
   }
 
-  const loadDrivers = async () => {
-    const snap = await getDocs(collection(db, 'Users'))
-    const list = snap.docs.map(doc => ({ uid: doc.id, ...(doc.data() as Omit<Driver, 'uid'>) }))
-    setDriverList(list)
-  }
-
   useEffect(() => { loadDrivers() }, [])
 
   useEffect(() => {
     if (!startDate || !endDate) return
-
     const loadSummary = async () => {
       const q = query(collection(db, 'DailyRecords'), where('deliveryDate', '>=', startDate), where('deliveryDate', '<=', endDate))
       const snap = await getDocs(q)
@@ -210,7 +225,6 @@ export default function Tab3Client() {
       }
       setSummary(Object.values(map))
     }
-
     loadSummary()
   }, [startDate, endDate])
 
@@ -220,9 +234,9 @@ export default function Tab3Client() {
       <main className="p-6 max-w-4xl mx-auto">
         <h1 className="text-xl font-bold mb-4 text-blue-700">💸 기사별 실지급 정산</h1>
         <div className="flex gap-4 mb-6">
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="border p-2" />
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border p-2" />
-          <select value={selectedUid} onChange={(e) => setSelectedUid(e.target.value)} className="border p-2 w-72">
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="border p-2 rounded" />
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border p-2 rounded" />
+          <select value={selectedUid} onChange={(e) => setSelectedUid(e.target.value)} className="border p-2 w-72 rounded">
             <option value="">기사 선택</option>
             {driverList.map(d => (
               <option key={d.uid} value={d.uid}>{d.name} ({d.email})</option>
@@ -237,7 +251,7 @@ export default function Tab3Client() {
           const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
 
           return (
-            <div className="border p-4 rounded bg-gray-50">
+            <div className="border p-4 rounded bg-gray-50 shadow">
               <h2 className="font-bold mb-2 text-blue-600">{selectedDriver.name} / {selectedDriver.email}</h2>
               <p className="text-sm text-gray-600 mb-3">
                 쿠팡ID: {Array.from(selectedDriver.ids).join(', ')}<br />
@@ -262,21 +276,23 @@ export default function Tab3Client() {
                     <label>{label}</label>
                     <input
                       type="number"
+                      min={0}
+                      step={1000}
                       value={d[key as keyof Deductions] ?? ''}
                       onChange={(e) => handleDeductionChange(key as keyof Deductions, e.target.value)}
-                      className="border p-1 w-40 text-right"
+                      className="border p-1 w-40 text-right rounded"
                     />
                   </div>
                 ))}
               </div>
 
-              <div className="mt-4 p-3 bg-green-100 border text-green-700 font-bold rounded">
+              <div className="mt-4 p-3 bg-green-100 border text-green-700 font-bold rounded text-center">
                 ▶ 실지급액: {finalPay.toLocaleString()}원
               </div>
 
-              <div className="flex gap-2 mt-4">
-                <button onClick={handleSave} className="bg-blue-600 text-white px-4 py-2 rounded">💾 저장</button>
-                <button onClick={handleExportPDF} className="bg-green-600 text-white px-4 py-2 rounded">📄 PDF 출력</button>
+              <div className="flex gap-2 mt-4 justify-end">
+                <button onClick={handleSave} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">💾 저장</button>
+                <button onClick={exportPDF} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">📄 PDF 출력</button>
               </div>
             </div>
           )
