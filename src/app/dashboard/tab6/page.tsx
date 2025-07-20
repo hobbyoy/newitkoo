@@ -31,7 +31,6 @@ export default function Tab6() {
   const loadData = async () => {
     if (!startDate || !endDate) return
 
-    // 총 수익 (쿠팡 totalFee)와 기사 수익 총합
     const payoutSnap = await getDocs(query(
       collection(db, 'FinalPayouts'),
       where('startDate', '==', startDate),
@@ -47,7 +46,6 @@ export default function Tab6() {
     setTotalFee(total)
     setDriverIncome(driverSum)
 
-    // tab4 저장값 기반 최종 수익
     const netSnap = await getDocs(query(
       collection(db, 'ItkooPayouts'),
       where('startDate', '==', startDate),
@@ -60,7 +58,6 @@ export default function Tab6() {
     })
     setFinalNetSum(sum)
 
-    // 프레시백 지급 합계 불러오기
     const freshbackSnap = await getDocs(query(
       collection(db, 'ItkooFreshbackProfits'),
       where('startDate', '==', startDate),
@@ -76,7 +73,7 @@ export default function Tab6() {
   const totalDeductions = insEmp + insInd + rental
   const otherCosts = tax + card
 
-  const profitA = (totalFee - driverIncome) + (freshbackIn - freshbackOut) - totalDeductions - otherCosts
+  const profitA = (totalFee + freshbackIn) - (driverIncome + freshbackOut + totalDeductions + otherCosts)
   const profitB = finalNetSum + (freshbackIn - freshbackOut) - otherCosts
 
   const diff = Math.abs(profitA - profitB)
@@ -116,15 +113,13 @@ export default function Tab6() {
         <div className="grid grid-cols-2 gap-6 bg-white p-6 rounded shadow">
           <div>
             <h2 className="font-semibold text-lg mb-2">📘 계산 방식 A (Raw)</h2>
-            <p>수익: {(totalFee - driverIncome).toLocaleString()} + 프레시백 차익: {(freshbackIn - freshbackOut).toLocaleString()}</p>
-            <p>공제: {totalDeductions.toLocaleString()} / 기타비용: {otherCosts.toLocaleString()}</p>
+            <p>수익: {(totalFee + freshbackIn).toLocaleString()} / 비용: {(driverIncome + freshbackOut + totalDeductions + otherCosts).toLocaleString()}</p>
             <p className="mt-2 text-xl font-bold text-blue-700">= {profitA.toLocaleString()} 원</p>
           </div>
 
           <div>
             <h2 className="font-semibold text-lg mb-2">📗 계산 방식 B (tab4 저장값 기반)</h2>
-            <p>합계 finalNet: {finalNetSum.toLocaleString()} + 프레시백 차익: {(freshbackIn - freshbackOut).toLocaleString()}</p>
-            <p>기타비용: {otherCosts.toLocaleString()}</p>
+            <p>finalNet 합계 + 프레시백 차익 - 기타비용</p>
             <p className="mt-2 text-xl font-bold text-green-700">= {profitB.toLocaleString()} 원</p>
           </div>
         </div>

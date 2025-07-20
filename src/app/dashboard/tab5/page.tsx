@@ -23,6 +23,7 @@ export default function Tab5() {
   const [totalDriverFreshback, setTotalDriverFreshback] = useState(0)
   const [netFreshback, setNetFreshback] = useState(0)
   const [saved, setSaved] = useState(false)
+  const [existingData, setExistingData] = useState<any>(null)
 
   useEffect(() => {
     const loadDriverFreshbacks = async () => {
@@ -47,6 +48,28 @@ export default function Tab5() {
     const inputValue = Number(inputFreshback) || 0
     setNetFreshback(inputValue - totalDriverFreshback)
   }, [inputFreshback, totalDriverFreshback])
+
+  useEffect(() => {
+    const fetchExisting = async () => {
+      if (!startDate || !endDate) return
+      const q = query(
+        collection(db, 'ItkooFreshbackProfits'),
+        where('startDate', '==', startDate),
+        where('endDate', '==', endDate)
+      )
+      const snap = await getDocs(q)
+      if (!snap.empty) {
+        const data = snap.docs[0].data()
+        setExistingData(data)
+        setInputFreshback(String(data.inputFreshback || ''))
+        setSaved(true)
+      } else {
+        setExistingData(null)
+        setSaved(false)
+      }
+    }
+    fetchExisting()
+  }, [startDate, endDate])
 
   const handleSave = async () => {
     if (!startDate || !endDate || !inputFreshback) return
@@ -99,6 +122,15 @@ export default function Tab5() {
               <span>💼 잇쿠 프레시백 수익 (차액)</span>
               <span>{netFreshback.toLocaleString()} 원</span>
             </div>
+
+            {existingData && (
+              <div className="mt-4 p-3 bg-gray-100 border rounded text-sm text-gray-700">
+                <p>📦 저장된 기록:</p>
+                <p>• 입력 프레시백: {existingData.inputFreshback?.toLocaleString()} 원</p>
+                <p>• 기사 프레시백 합계: {existingData.totalDriverFreshback?.toLocaleString()} 원</p>
+                <p>• 차익 수익: {existingData.netFreshback?.toLocaleString()} 원</p>
+              </div>
+            )}
           </div>
           <div className="mt-6 text-right">
             <button
