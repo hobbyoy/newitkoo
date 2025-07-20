@@ -8,7 +8,8 @@ import {
   where,
   getDocs,
   setDoc,
-  doc
+  doc,
+  getDoc
 } from 'firebase/firestore'
 import TabNavigation from '@/components/TabNavigation'
 import useRoleGuard from '@/hooks/useRoleGuard'
@@ -18,10 +19,10 @@ export default function Tab6() {
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-
   const [profitA, setProfitA] = useState<number | null>(null)
   const [profitB, setProfitB] = useState<number | null>(null)
   const [difference, setDifference] = useState<number | null>(null)
+  const [saved, setSaved] = useState(false)
 
   const [inputs, setInputs] = useState({
     tax: 0,
@@ -111,16 +112,40 @@ export default function Tab6() {
     setProfitB(calcB)
     setDifference(Math.abs(calcA - calcB))
 
-    await setDoc(doc(db, 'ItkooFinalProfitSummary', `${startDate}_${endDate}`), {
-      startDate,
-      endDate,
-      profitA: calcA,
-      profitB: calcB,
-      diff: Math.abs(calcA - calcB),
-      inputs,
-      opDeduction,
-      createdAt: new Date()
-    })
+    const same = Math.abs(calcA - calcB) < 10
+    if (same) {
+      alert(`✅ 계산 완료! 검산 완료! (${calcA.toLocaleString()}원)`)
+    } else {
+      alert(`⚠️ 계산 실패! A와 B가 일치하지 않습니다. 차이: ${Math.abs(calcA - calcB).toLocaleString()}원`)
+    }
+  }
+
+  const handleSave = async () => {
+    if (!startDate || !endDate || profitA === null || profitB === null || difference === null) return alert('먼저 계산을 수행해주세요.')
+
+    const ref = doc(db, 'ItkooFinalProfitSummary', `${startDate}_${endDate}`)
+    const exists = await getDoc(ref)
+    if (exists.exists()) {
+      alert('⚠️ 이미 저장된 기간입니다.')
+      return
+    }
+
+    try {
+      await setDoc(ref, {
+        startDate,
+        endDate,
+        profitA,
+        profitB,
+        diff: difference,
+        inputs,
+        createdAt: new Date()
+      })
+      alert('✅ 저장 완료!')
+      setSaved(true)
+    } catch (err) {
+      console.error(err)
+      alert('❌ 저장 실패')
+    }
   }
 
   return (
@@ -128,38 +153,43 @@ export default function Tab6() {
       <TabNavigation />
       <main className="max-w-5xl mx-auto py-10 px-6">
         <h1 className="text-3xl font-bold text-blue-700 mb-8">💰 잇쿠 최종 손익 요약 (Tab6)</h1>
-        <div className="flex gap-4 mb-6">
-          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border p-2 rounded w-40" />
-          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border p-2 rounded w-40" />
-          <button onClick={calculate} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded">계산 및 저장</button>
-        </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-white border rounded p-5 shadow">
-            <h2 className="text-lg font-semibold text-gray-700 mb-2">📘 계산 방식 A (Raw 실적 기반)</h2>
-            {profitA !== null && <p className="text-xl text-blue-800 font-bold">{profitA.toLocaleString()} 원</p>}
+        <section className="bg-white shadow rounded-lg p-6 border mb-6">
+          <div className="flex flex-wrap gap-4 mb-4">
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border p-2 rounded w-40" />
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border p-2 rounded w-40" />
+            <button onClick={calculate} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded">📊 계산</button>
+            <button onClick={handleSave} className={`px-4 py-2 rounded text-white ${saved ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`} disabled={saved}>
+              {saved ? '✅ 저장완료' : '💾 저장'}</button>
           </div>
-          <div className="bg-white border rounded p-5 shadow">
-            <h2 className="text-lg font-semibold text-gray-700 mb-2">📗 계산 방식 B (정산값 기반)</h2>
-            {profitB !== null && <p className="text-xl text-green-700 font-bold">{profitB.toLocaleString()} 원</p>}
-          </div>
-        </div>
 
-        {difference !== null && (
-          <div className="mt-6 bg-yellow-50 border border-yellow-300 text-yellow-800 p-4 rounded shadow">
-            📐 계산 결과 차이: <b>{difference.toLocaleString()} 원</b>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-blue-50 border border-blue-300 rounded p-4">
+              <h2 className="text-md font-semibold text-blue-800 mb-2">📘 계산 방식 A (Raw 실적 기반)</h2>
+              {profitA !== null && <p className="text-2xl font-bold text-blue-900">{profitA.toLocaleString()} 원</p>}
+            </div>
+            <div className="bg-green-50 border border-green-300 rounded p-4">
+              <h2 className="text-md font-semibold text-green-800 mb-2">📗 계산 방식 B (정산값 기반)</h2>
+              {profitB !== null && <p className="text-2xl font-bold text-green-900">{profitB.toLocaleString()} 원</p>}
+            </div>
           </div>
-        )}
 
-        <div className="mt-10 bg-gray-50 p-5 rounded border">
-          <h3 className="text-md font-semibold text-gray-600 mb-2">🏢 고정비 / 세금 (수기입력)</h3>
+          {difference !== null && (
+            <div className="mt-4 bg-yellow-100 border border-yellow-400 text-yellow-800 font-semibold p-3 rounded">
+              📐 계산 결과 차이: {difference.toLocaleString()} 원
+            </div>
+          )}
+        </section>
+
+        <section className="bg-gray-50 p-5 rounded border">
+          <h3 className="text-md font-semibold text-gray-600 mb-4">🏢 고정비 / 세금 (수기입력)</h3>
           {[ 'tax', 'card', 'rent', 'etcFixed' ].map(k => (
-            <div key={k} className="flex justify-between items-center mb-2">
-              <label className="w-32 capitalize">{k}</label>
+            <div key={k} className="flex justify-between items-center mb-3">
+              <label className="w-32 capitalize font-medium text-gray-700">{k}</label>
               <input type="number" className="border p-1 rounded w-40 text-right" value={inputs[k as keyof typeof inputs]} onChange={e => handleChange(k, e.target.value)} />
             </div>
           ))}
-        </div>
+        </section>
       </main>
     </div>
   )
