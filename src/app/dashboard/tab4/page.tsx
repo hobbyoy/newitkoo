@@ -140,8 +140,8 @@ export default function Tab4() {
                 <th className="border p-2">기사명</th>
                 <th className="border p-2">이메일</th>
                 <th className="border p-2">잇쿠 수수료</th>
-                <th className="border p-2">"산재보험(회사)"</th>
-                <th className="border p-2">"고용보험(회사)"</th>
+                <th className="border p-2">산재보험</th>
+                <th className="border p-2">고용보험</th>
                 <th className="border p-2">용차</th>
                 <th className="border p-2">기타</th>
                 <th className="border p-2">최종 수익</th>
