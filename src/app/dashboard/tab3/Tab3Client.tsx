@@ -51,11 +51,11 @@ interface Summary {
 }
 
 interface Deductions {
-  insEmp: number
-  insInd: number
-  rental: number
-  damage: number
-  etc: number
+  empDeduct: number
+  indDeduct: number
+  rentalDeduct: number
+  damageDeduct: number
+  etcDeduct: number
   freshback: number
 }
 
@@ -172,47 +172,6 @@ export default function Tab3Client() {
     loadSummary()
   }, [startDate, endDate])
 
-  const exportPDF = () => {
-    const pdfMake = pdfMakeRef.current
-    if (!pdfMake || !selectedDriver) return
-    const d = deductions[selectedDriver.uid] || {}
-    const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
-    const freshback = d.freshback || 0
-    const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
-
-    const docDefinition = {
-      content: [
-        { text: '📄 잇쿠 기사 정산서', fontSize: 18, alignment: 'center', margin: [0, 0, 0, 10] },
-        { text: `기사명: ${selectedDriver.name} (${selectedDriver.email})`, margin: [0, 10, 0, 2] },
-        { text: `정산 기간: ${startDate} ~ ${endDate}`, margin: [0, 0, 0, 10] },
-        {
-          table: {
-            widths: ['*', '*'],
-            body: [
-              ['항목', '금액 (원)'],
-              ['배송 건수', selectedDriver.totalDelivery],
-              ['반품 건수', selectedDriver.totalReturn],
-              ['총 건수', selectedDriver.totalCount],
-              ['수행 실적 금액', selectedDriver.driverIncome.toLocaleString()],
-              ['- 고용보험', `-${(d.insEmp || 0).toLocaleString()}`],
-              ['- 산재보험', `-${(d.insInd || 0).toLocaleString()}`],
-              ['- 운송지원비', `-${(d.rental || 0).toLocaleString()}`],
-              ['- 파손/분실', `-${(d.damage || 0).toLocaleString()}`],
-              ['- 기타 차감', `-${(d.etc || 0).toLocaleString()}`],
-              ['프레시백 수익', freshback.toLocaleString()],
-              ['▶ 실지급액', finalPay.toLocaleString()]
-            ]
-          },
-          layout: 'lightHorizontalLines'
-        }
-      ],
-      defaultStyle: { font: 'NotoSans' }
-    }
-
-    pdfMake.createPdf(docDefinition).download(`정산서_${selectedDriver.name}_${startDate}_${endDate}.pdf`)
-  }
-
-
   const handleDeductionChange = (field: keyof Deductions, value: string) => {
     if (!selectedUid) return
     setDeductions(prev => ({
@@ -224,10 +183,10 @@ export default function Tab3Client() {
   const handleSave = async () => {
     if (!selectedDriver || !startDate || !endDate) return
     const d = deductions[selectedDriver.uid] || {}
-    const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
+    const totalDeduct = (d.empDeduct || 0) + (d.indDeduct || 0) + (d.rentalDeduct || 0) + (d.damageDeduct || 0) + (d.etcDeduct || 0)
     const freshback = d.freshback || 0
     const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
-    const itkooFee = selectedDriver.totalFee - selectedDriver.driverIncome
+    const itkooFee = selectedDriver.totalFee
 
     const docRef = doc(db, 'FinalPayouts', `${selectedDriver.uid}_${startDate}_${endDate}`)
     const exists = await getDoc(docRef)
@@ -248,18 +207,18 @@ export default function Tab3Client() {
         totalCount: selectedDriver.totalCount,
         driverIncome: selectedDriver.driverIncome,
         totalFee: selectedDriver.totalFee,
-        itkooFee, // ✅ 운영자 수익 저장용
+        itkooFee,
         ids: Array.from(selectedDriver.ids),
         routes: Array.from(selectedDriver.routes),
         totalDeduction: totalDeduct,
         freshback,
         finalPay,
         deductions: {
-          insEmp: d.insEmp || 0,
-          insInd: d.insInd || 0,
-          rental: d.rental || 0,
-          damage: d.damage || 0,
-          etc: d.etc || 0
+          empDeduct: d.empDeduct || 0,
+          indDeduct: d.indDeduct || 0,
+          rentalDeduct: d.rentalDeduct || 0,
+          damageDeduct: d.damageDeduct || 0,
+          etcDeduct: d.etcDeduct || 0
         },
         createdAt: new Date()
       })
@@ -268,6 +227,46 @@ export default function Tab3Client() {
       console.error('❌ 저장 실패:', err)
       alert('❌ 저장 중 오류가 발생했습니다.')
     }
+  }
+
+  const exportPDF = () => {
+    const pdfMake = pdfMakeRef.current
+    if (!pdfMake || !selectedDriver) return
+    const d = deductions[selectedDriver.uid] || {}
+    const totalDeduct = (d.empDeduct || 0) + (d.indDeduct || 0) + (d.rentalDeduct || 0) + (d.damageDeduct || 0) + (d.etcDeduct || 0)
+    const freshback = d.freshback || 0
+    const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
+
+    const docDefinition = {
+      content: [
+        { text: '📄 잇쿠 기사 정산서', fontSize: 18, alignment: 'center', margin: [0, 0, 0, 10] },
+        { text: `기사명: ${selectedDriver.name} (${selectedDriver.email})`, margin: [0, 10, 0, 2] },
+        { text: `정산 기간: ${startDate} ~ ${endDate}`, margin: [0, 0, 0, 10] },
+        {
+          table: {
+            widths: ['*', '*'],
+            body: [
+              ['항목', '금액 (원)'],
+              ['배송 건수', selectedDriver.totalDelivery],
+              ['반품 건수', selectedDriver.totalReturn],
+              ['총 건수', selectedDriver.totalCount],
+              ['수행 실적 금액', selectedDriver.driverIncome.toLocaleString()],
+              ['- 고용보험', `-${(d.empDeduct || 0).toLocaleString()}`],
+              ['- 산재보험', `-${(d.indDeduct || 0).toLocaleString()}`],
+              ['- 운송지원비', `-${(d.rentalDeduct || 0).toLocaleString()}`],
+              ['- 파손/분실', `-${(d.damageDeduct || 0).toLocaleString()}`],
+              ['- 기타 차감', `-${(d.etcDeduct || 0).toLocaleString()}`],
+              ['프레시백 수익', freshback.toLocaleString()],
+              ['▶ 실지급액', finalPay.toLocaleString()]
+            ]
+          },
+          layout: 'lightHorizontalLines'
+        }
+      ],
+      defaultStyle: { font: 'NotoSans' }
+    }
+
+    pdfMake.createPdf(docDefinition).download(`정산서_${selectedDriver.name}_${startDate}_${endDate}.pdf`)
   }
 
   return (
@@ -288,7 +287,7 @@ export default function Tab3Client() {
 
         {selectedDriver && (() => {
           const d = deductions[selectedDriver.uid] || {}
-          const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
+          const totalDeduct = (d.empDeduct || 0) + (d.indDeduct || 0) + (d.rentalDeduct || 0) + (d.damageDeduct || 0) + (d.etcDeduct || 0)
           const freshback = d.freshback || 0
           const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
 
@@ -303,11 +302,10 @@ export default function Tab3Client() {
               <p className="text-sm mb-3 font-medium">
                 📦 배송: {selectedDriver.totalDelivery}건 / 반품: {selectedDriver.totalReturn}건 / 총 {selectedDriver.totalCount}건<br />
                 💰 기사수익: {selectedDriver.driverIncome.toLocaleString()}원<br />
-                📈 총수수료(쿠팡 기준): {selectedDriver.totalFee.toLocaleString()}원
               </p>
 
               <div className="grid gap-3 text-sm bg-gray-50 p-4 rounded border">
-                {[ ['고용보험', 'insEmp'], ['산재보험', 'insInd'], ['운송지원비', 'rental'], ['파손/분실', 'damage'], ['기타 공제', 'etc'], ['프레시백 수익', 'freshback'] ].map(([label, key]) => (
+                {[ ['고용보험', 'empDeduct'], ['산재보험', 'indDeduct'], ['운송지원비', 'rentalDeduct'], ['파손/분실', 'damageDeduct'], ['기타 공제', 'etcDeduct'], ['프레시백 수익', 'freshback'] ].map(([label, key]) => (
                   <div key={key} className="flex justify-between items-center">
                     <label className="w-32 text-gray-700">{label}</label>
                     <input
