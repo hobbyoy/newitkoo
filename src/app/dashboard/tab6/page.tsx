@@ -24,10 +24,6 @@ export default function Tab6() {
   const [difference, setDifference] = useState<number | null>(null)
 
   const [inputs, setInputs] = useState({
-    insEmp: 0,
-    insInd: 0,
-    rental: 0,
-    etc: 0,
     tax: 0,
     card: 0,
     rent: 0,
@@ -40,8 +36,6 @@ export default function Tab6() {
 
   const calculate = async () => {
     if (!startDate || !endDate) return alert('기간을 선택하세요.')
-
-    console.log('📆 선택한 기간:', startDate, ' ~ ', endDate)
 
     const dailySnap = await getDocs(
       query(
@@ -58,18 +52,11 @@ export default function Tab6() {
       const d = docSnap.data()
       const total = d.totalCount || 0
       const routeId = `${d.route}_${d.coupangId}`.toUpperCase()
-      console.log('⛳️ routeId:', routeId, '총건수:', total)
-
       const routeSnap = await getDocs(query(collection(db, 'Routes'), where('id', '==', routeId)))
       if (!routeSnap.empty) {
         const route = routeSnap.docs[0].data()
-        const coupangUnit = route.coupangUnitPrice || 0
-        const driverUnit = route.driverUnitPrice || 0
-        console.log('✅ 단가 조회:', coupangUnit, driverUnit)
-        coupangRevenue += total * coupangUnit
-        driverCost += total * driverUnit
-      } else {
-        console.warn('❌ [단가 조회 실패] 해당 routeId를 찾을 수 없음:', routeId)
+        coupangRevenue += total * (route.coupangUnitPrice || 0)
+        driverCost += total * (route.driverUnitPrice || 0)
       }
     }
 
@@ -87,25 +74,9 @@ export default function Tab6() {
       const d = freshSnap.docs[0].data()
       freshIn = d.inputFreshback || 0
       freshOut = d.totalDriverFreshback || 0
-    } else {
-      console.warn('❌ 프레시백 정보 없음 (ItkooFreshbackProfits)')
     }
 
-    const totalExpenseA = driverCost + freshOut + inputs.insEmp + inputs.insInd + inputs.rental + inputs.etc + inputs.tax + inputs.card + inputs.rent + inputs.etcFixed
-    const totalRevenueA = coupangRevenue + freshIn
-    const calcA = totalRevenueA - totalExpenseA
-    console.log('📘 A 방식 계산:', {
-      coupangRevenue,
-      freshIn,
-      driverCost,
-      freshOut,
-      공제: inputs,
-      totalRevenueA,
-      totalExpenseA,
-      calcA
-    })
-
-    const payoutSnap = await getDocs(
+    const payoutOpSnap = await getDocs(
       query(
         collection(db, 'ItkooPayouts'),
         where('startDate', '==', startDate),
@@ -113,21 +84,28 @@ export default function Tab6() {
       )
     )
 
-    let totalFinalNet = 0
-    payoutSnap.forEach(doc => {
-      const v = doc.data().finalNet || 0
-      totalFinalNet += v
-      console.log('📗 B 방식 finalNet 항목:', v)
+    let insOpSum = 0
+    let empOpSum = 0
+    let rentalOpSum = 0
+    let etcOpSum = 0
+    let finalNetSum = 0
+
+    payoutOpSnap.forEach(doc => {
+      const data = doc.data()
+      insOpSum += data.insOp || 0
+      empOpSum += data.empOp || 0
+      rentalOpSum += data.rentalOp || 0
+      etcOpSum += data.etcOp || 0
+      finalNetSum += data.finalNet || 0
     })
 
-    const calcB = totalFinalNet + (freshIn - freshOut) - (inputs.tax + inputs.card + inputs.rent + inputs.etcFixed)
-    console.log('📗 B 방식 계산:', {
-      totalFinalNet,
-      freshIn,
-      freshOut,
-      고정비: inputs,
-      calcB
-    })
+    const opDeduction = insOpSum + empOpSum + rentalOpSum + etcOpSum
+
+    const totalExpenseA = driverCost + freshOut + opDeduction + inputs.tax + inputs.card + inputs.rent + inputs.etcFixed
+    const totalRevenueA = coupangRevenue + freshIn
+    const calcA = totalRevenueA - totalExpenseA
+
+    const calcB = finalNetSum + (freshIn - freshOut) - (inputs.tax + inputs.card + inputs.rent + inputs.etcFixed)
 
     setProfitA(calcA)
     setProfitB(calcB)
@@ -140,6 +118,7 @@ export default function Tab6() {
       profitB: calcB,
       diff: Math.abs(calcA - calcB),
       inputs,
+      opDeduction,
       createdAt: new Date()
     })
   }
@@ -172,25 +151,14 @@ export default function Tab6() {
           </div>
         )}
 
-        <div className="mt-10 grid md:grid-cols-2 gap-6">
-          <div className="bg-gray-50 p-5 rounded border">
-            <h3 className="text-md font-semibold text-gray-600 mb-2">🧾 운영자 공제</h3>
-            {[ 'insEmp', 'insInd', 'rental', 'etc' ].map(k => (
-              <div key={k} className="flex justify-between items-center mb-2">
-                <label className="w-32 capitalize">{k}</label>
-                <input type="number" className="border p-1 rounded w-40 text-right" value={inputs[k as keyof typeof inputs]} onChange={e => handleChange(k, e.target.value)} />
-              </div>
-            ))}
-          </div>
-          <div className="bg-gray-50 p-5 rounded border">
-            <h3 className="text-md font-semibold text-gray-600 mb-2">🏢 고정비 / 세금</h3>
-            {[ 'tax', 'card', 'rent', 'etcFixed' ].map(k => (
-              <div key={k} className="flex justify-between items-center mb-2">
-                <label className="w-32 capitalize">{k}</label>
-                <input type="number" className="border p-1 rounded w-40 text-right" value={inputs[k as keyof typeof inputs]} onChange={e => handleChange(k, e.target.value)} />
-              </div>
-            ))}
-          </div>
+        <div className="mt-10 bg-gray-50 p-5 rounded border">
+          <h3 className="text-md font-semibold text-gray-600 mb-2">🏢 고정비 / 세금 (수기입력)</h3>
+          {[ 'tax', 'card', 'rent', 'etcFixed' ].map(k => (
+            <div key={k} className="flex justify-between items-center mb-2">
+              <label className="w-32 capitalize">{k}</label>
+              <input type="number" className="border p-1 rounded w-40 text-right" value={inputs[k as keyof typeof inputs]} onChange={e => handleChange(k, e.target.value)} />
+            </div>
+          ))}
         </div>
       </main>
     </div>
