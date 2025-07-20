@@ -1,3 +1,4 @@
+// 요약 테이블 추가
 'use client'
 
 import { useState } from 'react'
@@ -23,6 +24,7 @@ export default function Tab6() {
   const [profitB, setProfitB] = useState<number | null>(null)
   const [difference, setDifference] = useState<number | null>(null)
   const [saved, setSaved] = useState(false)
+  const [summary, setSummary] = useState<any | null>(null)
 
   const [inputs, setInputs] = useState({
     tax: 0,
@@ -112,11 +114,26 @@ export default function Tab6() {
     setProfitB(calcB)
     setDifference(Math.abs(calcA - calcB))
 
+    setSummary({
+      coupangRevenue,
+      driverCost,
+      itkooFee: coupangRevenue - driverCost,
+      freshIn,
+      freshOut,
+      opDeduction,
+      fixedCost: inputs.tax + inputs.card + inputs.rent + inputs.etcFixed,
+      totalRevenueA,
+      totalExpenseA,
+      calcA,
+      finalNetSum,
+      calcB
+    })
+
     const same = Math.abs(calcA - calcB) < 10
     if (same) {
-      alert(`✅ 계산 완료! 검산 완료! (${calcA.toLocaleString()}원)`)
+      alert(`✅ 계산 완료! A와 B가 일치합니다. (${calcA.toLocaleString()}원)`)
     } else {
-      alert(`⚠️ 계산 실패! A와 B가 일치하지 않습니다. 차이: ${Math.abs(calcA - calcB).toLocaleString()}원`)
+      alert(`⚠️ 계산 완료! A와 B가 일치하지 않습니다. 차이: ${Math.abs(calcA - calcB).toLocaleString()}원`)
     }
   }
 
@@ -160,7 +177,7 @@ export default function Tab6() {
             <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border p-2 rounded w-40" />
             <button onClick={calculate} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded">📊 계산</button>
             <button onClick={handleSave} className={`px-4 py-2 rounded text-white ${saved ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`} disabled={saved}>
-              {saved ? '✅ 저장완료' : '💾 저장'}</button>
+              {saved ? '✅ 저장됨' : '💾 저장'}</button>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
@@ -177,6 +194,23 @@ export default function Tab6() {
           {difference !== null && (
             <div className="mt-4 bg-yellow-100 border border-yellow-400 text-yellow-800 font-semibold p-3 rounded">
               📐 계산 결과 차이: {difference.toLocaleString()} 원
+            </div>
+          )}
+
+          {summary && (
+            <div className="mt-6 bg-gray-50 border border-gray-200 p-4 rounded shadow-sm text-sm">
+              <h3 className="text-md font-semibold text-gray-700 mb-2">📋 요약 테이블</h3>
+              <table className="w-full text-sm border">
+                <tbody>
+                  <tr><td className="border p-2">쿠팡 수익</td><td className="border p-2 text-right">{summary.coupangRevenue.toLocaleString()} 원</td></tr>
+                  <tr><td className="border p-2">기사 비용</td><td className="border p-2 text-right">{summary.driverCost.toLocaleString()} 원</td></tr>
+                  <tr><td className="border p-2">잇쿠 수수료 (차익)</td><td className="border p-2 text-right">{summary.itkooFee.toLocaleString()} 원</td></tr>
+                  <tr><td className="border p-2">프레시백 수익</td><td className="border p-2 text-right">{summary.freshIn.toLocaleString()} 원</td></tr>
+                  <tr><td className="border p-2">프레시백 지급</td><td className="border p-2 text-right">{summary.freshOut.toLocaleString()} 원</td></tr>
+                  <tr><td className="border p-2">운영자 공제 합계</td><td className="border p-2 text-right">{summary.opDeduction.toLocaleString()} 원</td></tr>
+                  <tr><td className="border p-2">고정비 총합</td><td className="border p-2 text-right">{summary.fixedCost.toLocaleString()} 원</td></tr>
+                </tbody>
+              </table>
             </div>
           )}
         </section>
