@@ -1,9 +1,9 @@
 // src/app/dashboard/tab3/Tab3Client.tsx
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { db } from '@/lib/firebase'
-import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore'
+import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore'
 import useRoleGuard from '@/hooks/useRoleGuard'
 import TabNavigation from '@/components/TabNavigation'
 import notoVfs from '@/lib/fonts/noto-vfs'
@@ -12,21 +12,6 @@ interface Driver {
   uid: string
   email: string
   name: string
-}
-
-interface RecordData {
-  uid: string
-  email: string
-  name: string
-  route: string
-  coupangId: string
-  deliveryCount: number
-  returnCount: number
-}
-
-interface RouteUnit {
-  driverUnitPrice: number
-  coupangUnitPrice: number
 }
 
 interface Summary {
@@ -69,10 +54,11 @@ export default function Tab3Client() {
   const [selectedUid, setSelectedUid] = useState('')
   const [deductions, setDeductions] = useState<Record<string, Partial<Deductions>>>({})
   const pdfMakeRef = useRef<PdfMakeType | null>(null)
-  const selectedDriver = summary.find(d => d.uid === selectedUid)
+
+  const selectedDriver = useMemo(() => summary.find(d => d.uid === selectedUid), [summary, selectedUid])
 
   useEffect(() => {
-    const load = async () => {
+    const loadPDFMake = async () => {
       const m = await import('pdfmake/build/pdfmake')
       const pdfMake = m.default || m
       pdfMake.vfs = notoVfs
@@ -86,7 +72,23 @@ export default function Tab3Client() {
       }
       pdfMakeRef.current = pdfMake
     }
-    load()
+    loadPDFMake()
+  }, [])
+
+  useEffect(() => {
+    const loadDrivers = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'Users'))
+        const list = snap.docs.map(doc => ({
+          uid: doc.id,
+          ...(doc.data() as Omit<Driver, 'uid'>)
+        }))
+        setDriverList(list)
+      } catch (err) {
+        console.error('❌ 기사 불러오기 오류:', err)
+      }
+    }
+    loadDrivers()
   }, [])
 
   const exportPDF = () => {
@@ -126,78 +128,64 @@ export default function Tab3Client() {
       ],
       defaultStyle: { font: 'NotoSans' }
     }
-const loadDrivers = async () => {
-  try {
-    const snap = await getDocs(collection(db, 'Users'))
-    const list = snap.docs.map(doc => ({
-      uid: doc.id,
-      ...(doc.data() as Omit<Driver, 'uid'>)
-    }))
-    setDriverList(list)
-  } catch (err) {
-    console.error('❌ 기사 불러오기 오류:', err)
-  } 
-}
-useEffect(() => {
-  loadDrivers()
-}, [])
 
     pdfMake.createPdf(docDefinition).download(`정산서_${selectedDriver.name}_${startDate}_${endDate}.pdf`)
   }
-const handleDeductionChange = (field: keyof Deductions, value: string) => {
-  if (!selectedUid) return
-  setDeductions(prev => ({
-    ...prev,
-    [selectedUid]: { ...prev[selectedUid], [field]: Number(value) || 0 }
-  }))
-}
 
-const handleSave = async () => {
-  if (!selectedDriver || !startDate || !endDate) return
-  const d = deductions[selectedDriver.uid] || {}
-  const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
-  const freshback = d.freshback || 0
-  const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
-
-  const docRef = doc(db, 'FinalPayouts', `${selectedDriver.uid}_${startDate}_${endDate}`)
-  const exists = await getDoc(docRef)
-  if (exists.exists()) {
-    alert('⚠️ 이미 저장된 정산 데이터입니다.')
-    return
+  const handleDeductionChange = (field: keyof Deductions, value: string) => {
+    if (!selectedUid) return
+    setDeductions(prev => ({
+      ...prev,
+      [selectedUid]: { ...prev[selectedUid], [field]: Number(value) || 0 }
+    }))
   }
 
-  try {
-    await setDoc(docRef, {
-      uid: selectedDriver.uid,
-      email: selectedDriver.email,
-      name: selectedDriver.name,
-      startDate,
-      endDate,
-      totalDelivery: selectedDriver.totalDelivery,
-      totalReturn: selectedDriver.totalReturn,
-      totalCount: selectedDriver.totalCount,
-      driverIncome: selectedDriver.driverIncome,
-      totalFee: selectedDriver.totalFee,
-      ids: Array.from(selectedDriver.ids),
-      routes: Array.from(selectedDriver.routes),
-      totalDeduction: totalDeduct,
-      freshback,
-      finalPay,
-      deductions: {
-        insEmp: d.insEmp || 0,
-        insInd: d.insInd || 0,
-        rental: d.rental || 0,
-        damage: d.damage || 0,
-        etc: d.etc || 0
-      },
-      createdAt: new Date()
-    })
-    alert('✅ 저장 완료')
-  } catch (err) {
-    console.error('❌ 저장 실패:', err)
-    alert('❌ 저장 중 오류가 발생했습니다.')
+  const handleSave = async () => {
+    if (!selectedDriver || !startDate || !endDate) return
+    const d = deductions[selectedDriver.uid] || {}
+    const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
+    const freshback = d.freshback || 0
+    const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
+
+    const docRef = doc(db, 'FinalPayouts', `${selectedDriver.uid}_${startDate}_${endDate}`)
+    const exists = await getDoc(docRef)
+    if (exists.exists()) {
+      alert('⚠️ 이미 저장된 정산 데이터입니다.')
+      return
+    }
+
+    try {
+      await setDoc(docRef, {
+        uid: selectedDriver.uid,
+        email: selectedDriver.email,
+        name: selectedDriver.name,
+        startDate,
+        endDate,
+        totalDelivery: selectedDriver.totalDelivery,
+        totalReturn: selectedDriver.totalReturn,
+        totalCount: selectedDriver.totalCount,
+        driverIncome: selectedDriver.driverIncome,
+        totalFee: selectedDriver.totalFee,
+        ids: Array.from(selectedDriver.ids),
+        routes: Array.from(selectedDriver.routes),
+        totalDeduction: totalDeduct,
+        freshback,
+        finalPay,
+        deductions: {
+          insEmp: d.insEmp || 0,
+          insInd: d.insInd || 0,
+          rental: d.rental || 0,
+          damage: d.damage || 0,
+          etc: d.etc || 0
+        },
+        createdAt: new Date()
+      })
+      alert('✅ 저장 완료')
+    } catch (err) {
+      console.error('❌ 저장 실패:', err)
+      alert('❌ 저장 중 오류가 발생했습니다.')
+    }
   }
-}
 
   return (
     <div className="bg-gray-50 min-h-screen">
