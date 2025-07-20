@@ -111,7 +111,7 @@ export default function Tab4() {
     <div>
       <TabNavigation />
       <main className="p-6 max-w-6xl mx-auto">
-        <h1 className="text-xl font-bold mb-6 text-blue-700">💼 기사별 최종 수익 정산 (Tab4)</h1>
+        <h1 className="text-xl font-bold mb-6 text-blue-700">💼 기사별 수수료 계산 (Tab4)</h1>
 
         <div className="flex gap-4 mb-6">
           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="border px-2 py-1 rounded" />

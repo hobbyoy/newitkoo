@@ -163,7 +163,7 @@ export default function Tab3Client() {
         map[key].totalReturn += returns
         map[key].totalCount += total
         map[key].driverIncome += total * unit.driverUnitPrice
-        map[key].totalFee += total * (unit.coupangUnitPrice - unit.driverUnitPrice)
+        map[key].totalFee += total * unit.coupangUnitPrice
       }
 
       setSummary(Object.values(map))
@@ -194,7 +194,7 @@ export default function Tab3Client() {
               ['반품 건수', selectedDriver.totalReturn],
               ['총 건수', selectedDriver.totalCount],
               ['기사 수익', selectedDriver.driverIncome.toLocaleString()],
-              ['잇쿠 수익 (단가차익)', selectedDriver.totalFee.toLocaleString()],
+              ['총수수료', selectedDriver.totalFee.toLocaleString()],
               ['고용보험', (d.insEmp || 0).toLocaleString()],
               ['산재보험', (d.insInd || 0).toLocaleString()],
               ['운송지원비', (d.rental || 0).toLocaleString()],
@@ -227,6 +227,7 @@ export default function Tab3Client() {
     const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
     const freshback = d.freshback || 0
     const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
+    const itkooFee = selectedDriver.totalFee - selectedDriver.driverIncome
 
     const docRef = doc(db, 'FinalPayouts', `${selectedDriver.uid}_${startDate}_${endDate}`)
     const exists = await getDoc(docRef)
@@ -247,6 +248,7 @@ export default function Tab3Client() {
         totalCount: selectedDriver.totalCount,
         driverIncome: selectedDriver.driverIncome,
         totalFee: selectedDriver.totalFee,
+        itkooFee, // ✅ 운영자 수익 저장용
         ids: Array.from(selectedDriver.ids),
         routes: Array.from(selectedDriver.routes),
         totalDeduction: totalDeduct,
@@ -301,7 +303,7 @@ export default function Tab3Client() {
               <p className="text-sm mb-3 font-medium">
                 📦 배송: {selectedDriver.totalDelivery}건 / 반품: {selectedDriver.totalReturn}건 / 총 {selectedDriver.totalCount}건<br />
                 💰 기사수익: {selectedDriver.driverIncome.toLocaleString()}원<br />
-                📈 잇쿠 수익 (단가차익): {selectedDriver.totalFee.toLocaleString()}원
+                📈 총수수료(쿠팡 기준): {selectedDriver.totalFee.toLocaleString()}원
               </p>
 
               <div className="grid gap-3 text-sm bg-gray-50 p-4 rounded border">
