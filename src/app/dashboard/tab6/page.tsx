@@ -1,4 +1,3 @@
-// 요약 테이블 추가
 'use client'
 
 import { useState } from 'react'
@@ -15,6 +14,21 @@ import {
 import TabNavigation from '@/components/TabNavigation'
 import useRoleGuard from '@/hooks/useRoleGuard'
 
+interface SummaryData {
+  coupangRevenue: number
+  driverCost: number
+  itkooFee: number
+  freshIn: number
+  freshOut: number
+  opDeduction: number
+  fixedCost: number
+  totalRevenueA: number
+  totalExpenseA: number
+  calcA: number
+  finalNetSum: number
+  calcB: number
+}
+
 export default function Tab6() {
   useRoleGuard('admin')
 
@@ -24,7 +38,7 @@ export default function Tab6() {
   const [profitB, setProfitB] = useState<number | null>(null)
   const [difference, setDifference] = useState<number | null>(null)
   const [saved, setSaved] = useState(false)
-  const [summary, setSummary] = useState<any | null>(null)
+  const [summary, setSummary] = useState<SummaryData | null>(null)
 
   const [inputs, setInputs] = useState({
     tax: 0,
@@ -103,12 +117,13 @@ export default function Tab6() {
     })
 
     const opDeduction = insOpSum + empOpSum + rentalOpSum + etcOpSum
+    const fixedCost = inputs.tax + inputs.card + inputs.rent + inputs.etcFixed
 
-    const totalExpenseA = driverCost + freshOut + opDeduction + inputs.tax + inputs.card + inputs.rent + inputs.etcFixed
+    const totalExpenseA = driverCost + freshOut + opDeduction + fixedCost
     const totalRevenueA = coupangRevenue + freshIn
     const calcA = totalRevenueA - totalExpenseA
 
-    const calcB = finalNetSum + (freshIn - freshOut) - (inputs.tax + inputs.card + inputs.rent + inputs.etcFixed)
+    const calcB = finalNetSum + (freshIn - freshOut) - fixedCost
 
     setProfitA(calcA)
     setProfitB(calcB)
@@ -121,7 +136,7 @@ export default function Tab6() {
       freshIn,
       freshOut,
       opDeduction,
-      fixedCost: inputs.tax + inputs.card + inputs.rent + inputs.etcFixed,
+      fixedCost,
       totalRevenueA,
       totalExpenseA,
       calcA,
@@ -177,7 +192,8 @@ export default function Tab6() {
             <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border p-2 rounded w-40" />
             <button onClick={calculate} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded">📊 계산</button>
             <button onClick={handleSave} className={`px-4 py-2 rounded text-white ${saved ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`} disabled={saved}>
-              {saved ? '✅ 저장됨' : '💾 저장'}</button>
+              {saved ? '✅ 저장됨' : '💾 저장'}
+            </button>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
@@ -217,7 +233,7 @@ export default function Tab6() {
 
         <section className="bg-gray-50 p-5 rounded border">
           <h3 className="text-md font-semibold text-gray-600 mb-4">🏢 고정비 / 세금 (수기입력)</h3>
-          {[ 'tax', 'card', 'rent', 'etcFixed' ].map(k => (
+          {['tax', 'card', 'rent', 'etcFixed'].map(k => (
             <div key={k} className="flex justify-between items-center mb-3">
               <label className="w-32 capitalize font-medium text-gray-700">{k}</label>
               <input type="number" className="border p-1 rounded w-40 text-right" value={inputs[k as keyof typeof inputs]} onChange={e => handleChange(k, e.target.value)} />
