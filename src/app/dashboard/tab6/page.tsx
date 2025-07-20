@@ -51,7 +51,6 @@ export default function Tab6() {
       )
     )
 
-    let totalCount = 0
     let coupangRevenue = 0
     let driverCost = 0
 
