@@ -51,6 +51,7 @@ export default function Tab4() {
       const snap = await getDocs(q)
       const result: FinalPayout[] = []
       const savedMap: Record<string, boolean> = {}
+      const deductionMap: Record<string, Partial<Deductions>> = {}
 
       for (const docSnap of snap.docs) {
         const data = docSnap.data() as FinalPayout
@@ -59,10 +60,21 @@ export default function Tab4() {
         const payoutRef = doc(db, 'ItkooPayouts', `${data.uid}_${startDate}_${endDate}`)
         const exist = await getDoc(payoutRef)
         savedMap[data.uid] = exist.exists()
+
+        if (exist.exists()) {
+          const existingData = exist.data()
+          deductionMap[data.uid] = {
+            insEmp: existingData.insEmp || 0,
+            insInd: existingData.insInd || 0,
+            rental: existingData.rental || 0,
+            etc: existingData.etc || 0
+          }
+        }
       }
 
       setPayouts(result)
       setSaved(savedMap)
+      setDeductions(deductionMap)
     } catch (error) {
       console.error('❌ Error loading payouts:', error)
     }
