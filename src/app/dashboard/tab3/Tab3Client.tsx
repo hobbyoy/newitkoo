@@ -95,54 +95,6 @@ export default function Tab3Client() {
     }))
   }
 
-  const handleSave = async () => {
-    if (!selectedDriver || !startDate || !endDate) return
-    const d = deductions[selectedDriver.uid] || {}
-    const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
-    const freshback = d.freshback || 0
-    const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
-
-    const docRef = doc(db, 'FinalPayouts', `${selectedDriver.uid}_${startDate}_${endDate}`)
-    const exists = await getDoc(docRef)
-    if (exists.exists()) {
-      alert('⚠️ 이미 저장된 정산 데이터입니다.')
-      return
-    }
-
-    try {
-      await setDoc(docRef, {
-        ...selectedDriver,
-        startDate,
-        endDate,
-        totalDelivery: selectedDriver.totalDelivery,
-        totalReturn: selectedDriver.totalReturn,
-        totalCount: selectedDriver.totalCount,
-        driverIncome: selectedDriver.driverIncome,
-        totalDeduction: totalDeduct,
-        freshback,
-        finalPay,
-        deductions: {
-          insEmp: d.insEmp || 0,
-          insInd: d.insInd || 0,
-          rental: d.rental || 0,
-          damage: d.damage || 0,
-          etc: d.etc || 0
-        },
-        createdAt: new Date()
-      })
-      alert('✅ 저장 완료')
-    } catch (err) {
-      console.error('❌ 저장 실패:', err)
-      alert('❌ 저장 중 오류가 발생했습니다.')
-    }
-  }
-
-  const loadDrivers = async () => {
-    const snap = await getDocs(collection(db, 'Users'))
-    const list = snap.docs.map(doc => ({ uid: doc.id, ...(doc.data() as Omit<Driver, 'uid'>) }))
-    setDriverList(list)
-  }
-
   const exportPDF = () => {
     const pdfMake = pdfMakeRef.current
     if (!pdfMake || !selectedDriver) return
@@ -181,6 +133,58 @@ export default function Tab3Client() {
     }
 
     pdfMake.createPdf(docDefinition).download(`정산서_${selectedDriver.name}_${startDate}_${endDate}.pdf`)
+  }
+
+  const handleSave = async () => {
+    if (!selectedDriver || !startDate || !endDate) return
+    const d = deductions[selectedDriver.uid] || {}
+    const totalDeduct = (d.insEmp || 0) + (d.insInd || 0) + (d.rental || 0) + (d.damage || 0) + (d.etc || 0)
+    const freshback = d.freshback || 0
+    const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
+
+    const docRef = doc(db, 'FinalPayouts', `${selectedDriver.uid}_${startDate}_${endDate}`)
+    const exists = await getDoc(docRef)
+    if (exists.exists()) {
+      alert('⚠️ 이미 저장된 정산 데이터입니다.')
+      return
+    }
+
+    try {
+      await setDoc(docRef, {
+        uid: selectedDriver.uid,
+        email: selectedDriver.email,
+        name: selectedDriver.name,
+        startDate,
+        endDate,
+        totalDelivery: selectedDriver.totalDelivery,
+        totalReturn: selectedDriver.totalReturn,
+        totalCount: selectedDriver.totalCount,
+        driverIncome: selectedDriver.driverIncome,
+        ids: Array.from(selectedDriver.ids),
+        routes: Array.from(selectedDriver.routes),
+        totalDeduction: totalDeduct,
+        freshback,
+        finalPay,
+        deductions: {
+          insEmp: d.insEmp || 0,
+          insInd: d.insInd || 0,
+          rental: d.rental || 0,
+          damage: d.damage || 0,
+          etc: d.etc || 0
+        },
+        createdAt: new Date()
+      })
+      alert('✅ 저장 완료')
+    } catch (err) {
+      console.error('❌ 저장 실패:', err)
+      alert('❌ 저장 중 오류가 발생했습니다.')
+    }
+  }
+
+  const loadDrivers = async () => {
+    const snap = await getDocs(collection(db, 'Users'))
+    const list = snap.docs.map(doc => ({ uid: doc.id, ...(doc.data() as Omit<Driver, 'uid'>) }))
+    setDriverList(list)
   }
 
   useEffect(() => { loadDrivers() }, [])
@@ -230,7 +234,7 @@ export default function Tab3Client() {
 
   return (
     <div>
-      <TabNavigation />
+       <TabNavigation />
       <main className="p-6 max-w-4xl mx-auto">
         <h1 className="text-xl font-bold mb-4 text-blue-700">💸 기사별 실지급 정산</h1>
         <div className="flex gap-4 mb-6">
