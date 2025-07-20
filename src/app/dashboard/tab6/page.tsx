@@ -41,7 +41,8 @@ export default function Tab6() {
   const calculate = async () => {
     if (!startDate || !endDate) return alert('기간을 선택하세요.')
 
-    // Load DailyRecords
+    console.log('📆 선택한 기간:', startDate, ' ~ ', endDate)
+
     const dailySnap = await getDocs(
       query(
         collection(db, 'DailyRecords'),
@@ -57,18 +58,22 @@ export default function Tab6() {
     for (const docSnap of dailySnap.docs) {
       const d = docSnap.data()
       const total = d.totalCount || 0
-      totalCount += total
-
       const routeId = `${d.route}_${d.coupangId}`.toUpperCase()
+      console.log('⛳️ routeId:', routeId, '총건수:', total)
+
       const routeSnap = await getDocs(query(collection(db, 'Routes'), where('id', '==', routeId)))
       if (!routeSnap.empty) {
         const route = routeSnap.docs[0].data()
-        coupangRevenue += total * (route.coupangUnitPrice || 0)
-        driverCost += total * (route.driverUnitPrice || 0)
+        const coupangUnit = route.coupangUnitPrice || 0
+        const driverUnit = route.driverUnitPrice || 0
+        console.log('✅ 단가 조회:', coupangUnit, driverUnit)
+        coupangRevenue += total * coupangUnit
+        driverCost += total * driverUnit
+      } else {
+        console.warn('❌ [단가 조회 실패] 해당 routeId를 찾을 수 없음:', routeId)
       }
     }
 
-    // Load Freshback
     const freshSnap = await getDocs(
       query(
         collection(db, 'ItkooFreshbackProfits'),
@@ -83,16 +88,24 @@ export default function Tab6() {
       const d = freshSnap.docs[0].data()
       freshIn = d.inputFreshback || 0
       freshOut = d.totalDriverFreshback || 0
+    } else {
+      console.warn('❌ 프레시백 정보 없음 (ItkooFreshbackProfits)')
     }
-
-    const itkooFee = coupangRevenue - driverCost
-    const freshbackProfit = freshIn
 
     const totalExpenseA = driverCost + freshOut + inputs.insEmp + inputs.insInd + inputs.rental + inputs.etc + inputs.tax + inputs.card + inputs.rent + inputs.etcFixed
     const totalRevenueA = coupangRevenue + freshIn
     const calcA = totalRevenueA - totalExpenseA
+    console.log('📘 A 방식 계산:', {
+      coupangRevenue,
+      freshIn,
+      driverCost,
+      freshOut,
+      공제: inputs,
+      totalRevenueA,
+      totalExpenseA,
+      calcA
+    })
 
-    // Load ItkooPayouts (B)
     const payoutSnap = await getDocs(
       query(
         collection(db, 'ItkooPayouts'),
@@ -100,12 +113,22 @@ export default function Tab6() {
         where('endDate', '==', endDate)
       )
     )
+
     let totalFinalNet = 0
     payoutSnap.forEach(doc => {
-      totalFinalNet += doc.data().finalNet || 0
+      const v = doc.data().finalNet || 0
+      totalFinalNet += v
+      console.log('📗 B 방식 finalNet 항목:', v)
     })
 
     const calcB = totalFinalNet + (freshIn - freshOut) - (inputs.tax + inputs.card + inputs.rent + inputs.etcFixed)
+    console.log('📗 B 방식 계산:', {
+      totalFinalNet,
+      freshIn,
+      freshOut,
+      고정비: inputs,
+      calcB
+    })
 
     setProfitA(calcA)
     setProfitB(calcB)
@@ -127,7 +150,6 @@ export default function Tab6() {
       <TabNavigation />
       <main className="max-w-5xl mx-auto py-10 px-6">
         <h1 className="text-3xl font-bold text-blue-700 mb-8">💰 잇쿠 최종 손익 요약 (Tab6)</h1>
-
         <div className="flex gap-4 mb-6">
           <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border p-2 rounded w-40" />
           <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border p-2 rounded w-40" />
