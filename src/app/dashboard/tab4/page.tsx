@@ -84,7 +84,7 @@ export default function Tab4() {
     const insInd = deduction.insInd || 0
     const rental = deduction.rental || 0
     const etc = deduction.etc || 0
-    const finalNet = data.totalFee - insEmp - insInd - rental - etc
+    const finalNet = (data.totalFee ?? 0) - insEmp - insInd - rental - etc
 
     try {
       await setDoc(doc(db, 'ItkooPayouts', `${data.uid}_${startDate}_${endDate}`), {
@@ -93,7 +93,7 @@ export default function Tab4() {
         email: data.email,
         startDate,
         endDate,
-        totalFee: data.totalFee,
+        totalFee: data.totalFee ?? 0,
         insEmp,
         insInd,
         rental,
@@ -143,13 +143,13 @@ export default function Tab4() {
                 const insInd = d.insInd || 0
                 const rental = d.rental || 0
                 const etc = d.etc || 0
-                const finalNet = p.totalFee - insEmp - insInd - rental - etc
+                const finalNet = (p.totalFee ?? 0) - insEmp - insInd - rental - etc
 
                 return (
                   <tr key={p.uid} className="text-center border-t">
                     <td className="border p-2">{p.name}</td>
                     <td className="border p-2">{p.email}</td>
-                    <td className="border p-2">{p.totalFee.toLocaleString()}</td>
+                    <td className="border p-2">{(p.totalFee ?? 0).toLocaleString()}</td>
                     {[['insEmp', insEmp], ['insInd', insInd], ['rental', rental], ['etc', etc]].map(([key, val]) => (
                       <td className="border p-2" key={key}>
                         <input
@@ -162,7 +162,7 @@ export default function Tab4() {
                         />
                       </td>
                     ))}
-                    <td className="border p-2 font-semibold text-green-700">{finalNet.toLocaleString()}</td>
+                    <td className="border p-2 font-semibold text-green-700">{(finalNet ?? 0).toLocaleString()}</td>
                     <td className="border p-2">
                       {saved[p.uid] ? '✅ 저장됨' : (
                         <button onClick={() => handleSave(p)} className="bg-blue-500 text-white px-2 py-1 rounded">저장</button>
