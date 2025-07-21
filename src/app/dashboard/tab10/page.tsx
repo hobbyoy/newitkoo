@@ -8,6 +8,7 @@ import {
   where,
   getDocs,
   setDoc,
+  getDoc,
   doc
 } from 'firebase/firestore'
 import TabNavigation from '@/components/TabNavigation'
@@ -76,13 +77,21 @@ export default function Tab10() {
   }
 
   const handleSave = async () => {
-    const inspectionDoc = doc(db, 'Inspections', selectedDate)
-    await setDoc(inspectionDoc, {
+    const inspectionRef = doc(db, 'Inspections', selectedDate)
+    const inspectionSnap = await getDoc(inspectionRef)
+
+    if (inspectionSnap.exists()) {
+      alert('⚠️ 이미 검수 완료된 날짜입니다.')
+      return
+    }
+
+    await setDoc(inspectionRef, {
       date: selectedDate,
       checked,
       completed: true,
       createdAt: new Date()
     })
+
     alert('✅ 전체 검수 결과 저장 완료')
     setSaved(true)
   }
