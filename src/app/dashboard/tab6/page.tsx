@@ -237,7 +237,7 @@ export default function Tab6() {
               <ul className="space-y-1">
                 <li className="flex justify-between"><span>쿠팡 수익</span><span>{summary.coupangRevenue.toLocaleString()} 원</span></li>
                 <li className="flex justify-between"><span>프레시백 수익</span><span>{summary.freshIn.toLocaleString()} 원</span></li>
-                <li className="flex justify-between"><span>잇쿠 수수료 (차익)</span><span>{summary.itkooFee.toLocaleString()} 원</span></li>
+              
               </ul>
             </div>
             <div className="bg-white border p-4 rounded-xl shadow">
