@@ -1,4 +1,4 @@
-// tab0/page.tsx (Figma 개발시안 기준 전체 코드)
+// tab0/page.tsx (Figma 스타일 1:1 완성 코드)
 'use client'
 
 import { useState } from 'react'
@@ -7,8 +7,11 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import TabNavigation from '@/components/TabNavigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { CalendarIcon } from 'lucide-react'
+import { format } from 'date-fns'
 
 export default function Tab0() {
   const [form, setForm] = useState({
@@ -19,11 +22,12 @@ export default function Tab0() {
     deliveryCount: '',
     returnCount: '',
   })
+  const [calendarOpen, setCalendarOpen] = useState(false)
   const [totalCount, setTotalCount] = useState(0)
   const [message, setMessage] = useState('')
   const [errors, setErrors] = useState<{ [key: string]: boolean }>({})
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     const updatedForm = { ...form, [name]: value }
     const delivery = Number(updatedForm.deliveryCount || 0)
@@ -39,6 +43,7 @@ export default function Tab0() {
     if (!form.coupangId) newErrors.coupangId = true
     if (!form.route) newErrors.route = true
     if (!form.shift) newErrors.shift = true
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       setMessage('❗ 필수 입력 항목을 모두 작성해 주세요.')
@@ -47,7 +52,7 @@ export default function Tab0() {
 
     const user = auth.currentUser
     if (!user) {
-      setMessage('❌ 로그인 상태가 아니입니다.')
+      setMessage('❌ 로그인 상태가 아닙니다.')
       return
     }
 
@@ -99,80 +104,105 @@ export default function Tab0() {
   }
 
   return (
-    <div className="bg-[#F8FAFC] min-h-screen">
+    <div className="min-h-screen bg-white">
       <TabNavigation />
-      <main className="max-w-lg mx-auto p-6 space-y-6">
-        <h1 className="text-3xl font-bold text-center text-[#0F172A] tracking-tight">📥 기사 실적 입력 (Tab0)</h1>
+      <main className="max-w-md mx-auto py-10 px-6 flex flex-col items-center space-y-6">
+        <h1 className="text-2xl font-bold text-center">일일 운행 등록</h1>
 
-        <Card className="shadow-md rounded-2xl border border-gray-200">
-          <CardContent className="p-6 space-y-4">
-            <div>
-              <Label className="text-sm text-gray-700">배송일자 *</Label>
-              <Input type="date" name="date" value={form.date} onChange={handleChange} />
-              {errors.date && <p className="text-red-500 text-xs mt-1">필수 입력입니다.</p>}
-            </div>
+        {/* 날짜 선택 */}
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full justify-between border rounded-lg text-base font-normal"
+            >
+              {form.date ? form.date : '배송일 선택'}
+              <CalendarIcon className="ml-2 h-4 w-4 text-gray-500" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="p-0 mt-2 rounded-xl shadow-xl">
+            <Calendar
+              mode="single"
+              selected={form.date ? new Date(form.date) : undefined}
+              onSelect={(d) => {
+                if (d) {
+                  setForm({ ...form, date: d.toISOString().slice(0, 10) })
+                  setCalendarOpen(false)
+                }
+              }}
+              className="rounded-xl"
+            />
+          </PopoverContent>
+        </Popover>
+        {errors.date && <p className="text-red-500 text-xs">필수 입력입니다.</p>}
 
-            <div>
-              <Label className="text-sm text-gray-700">쿠팡 ID *</Label>
-              <Input name="coupangId" placeholder="예: cp1234" value={form.coupangId} onChange={handleChange} />
-              {errors.coupangId && <p className="text-red-500 text-xs mt-1">필수 입력입니다.</p>}
-            </div>
+        {/* 쿠팡 ID */}
+        <Input
+          name="coupangId"
+          placeholder="쿠팡배송 어플에서 사용한 ID"
+          value={form.coupangId}
+          onChange={handleChange}
+        />
+        {errors.coupangId && <p className="text-red-500 text-xs">필수 입력입니다.</p>}
 
-            <div>
-              <Label className="text-sm text-gray-700">노선명 *</Label>
-              <Input name="route" placeholder="예: B101" value={form.route} onChange={handleChange} />
-              {errors.route && <p className="text-red-500 text-xs mt-1">필수 입력입니다.</p>}
-            </div>
+        {/* 노선명 */}
+        <Input
+          name="route"
+          placeholder="노선명 (예: a301)"
+          value={form.route}
+          onChange={handleChange}
+        />
+        {errors.route && <p className="text-red-500 text-xs">필수 입력입니다.</p>}
 
-            <div>
-              <Label className="text-sm text-gray-700">주/야 *</Label>
-              <select
-                name="shift"
-                value={form.shift}
-                onChange={handleChange}
-                className="border p-2 rounded w-full text-sm"
-              >
-                <option value="">-- 선택하세요 --</option>
-                <option value="주간">주간</option>
-                <option value="야간">야간</option>
-              </select>
-              {errors.shift && <p className="text-red-500 text-xs mt-1">필수 입력입니다.</p>}
-            </div>
+        {/* 배송/반품 건수 */}
+        <div className="flex gap-4 w-full">
+          <Input
+            name="deliveryCount"
+            type="number"
+            placeholder="배송건수"
+            value={form.deliveryCount}
+            onChange={handleChange}
+          />
+          <Input
+            name="returnCount"
+            type="number"
+            placeholder="반품건수"
+            value={form.returnCount}
+            onChange={handleChange}
+          />
+        </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm text-gray-700">배송 건수</Label>
-                <Input
-                  name="deliveryCount"
-                  type="number"
-                  min="0"
-                  value={form.deliveryCount}
-                  onChange={handleChange}
-                />
-              </div>
-              <div>
-                <Label className="text-sm text-gray-700">반품 건수</Label>
-                <Input
-                  name="returnCount"
-                  type="number"
-                  min="0"
-                  value={form.returnCount}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
+        {/* 주야 선택 */}
+        <ToggleGroup
+          type="single"
+          className="w-full border rounded-full justify-between"
+          value={form.shift}
+          onValueChange={(value) => setForm({ ...form, shift: value || '' })}
+        >
+          <ToggleGroupItem
+            value="주간"
+            className={`w-1/2 rounded-full text-base font-medium py-2 ${form.shift === '주간' ? 'bg-blue-600 text-white' : ''}`}
+          >
+            주간
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="야간"
+            className={`w-1/2 rounded-full text-base font-medium py-2 ${form.shift === '야간' ? 'bg-blue-600 text-white' : ''}`}
+          >
+            야간
+          </ToggleGroupItem>
+        </ToggleGroup>
+        {errors.shift && <p className="text-red-500 text-xs">필수 입력입니다.</p>}
 
-            <div className="text-sm text-right text-gray-500">
-              총 건수: <b>{totalCount}</b> 건
-            </div>
-          </CardContent>
-        </Card>
-
-        <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base py-2.5 rounded-xl" onClick={handleSubmit}>
-          💾 실적 저장
+        {/* 저장 버튼 */}
+        <Button
+          onClick={handleSubmit}
+          className="bg-black hover:bg-neutral-800 text-white text-base font-semibold py-2.5 px-8 rounded-xl"
+        >
+          저장하기
         </Button>
 
-        {message && <p className="text-center text-sm whitespace-pre-wrap text-gray-700 font-medium mt-2">{message}</p>}
+        {message && <p className="text-sm text-center text-gray-700 font-medium whitespace-pre-wrap">{message}</p>}
       </main>
     </div>
   )
