@@ -225,7 +225,8 @@ export default function Tab0() {
         {/* 저장 버튼 */}
         <Button
           onClick={handleSubmit}
-          className="w-[85px] h-[41px] px-4 py-2 rounded-md border border-[#E0E0E0] bg-black text-white text-sm font-semibold shadow-[0_2px_2px_rgba(0,0,0,0.25)]"
+         className="w-[85px] h-[41px] px-4 py-2 rounded-md border border-[#0088FF] bg-[#0088FF] text-white text-sm font-semibold shadow-[0_2px_4px_rgba(0,0,0,0.15)] hover:brightness-110 transition-all"
+
         >
           저장하기
         </Button>

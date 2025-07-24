@@ -1,5 +1,4 @@
-// src/components/TabNavigation.tsx
-
+// src/components/TabNavigation.tsx (피그마 스타일 적용)
 'use client'
 
 import Link from 'next/link'
@@ -7,18 +6,19 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { auth, db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
+import { Menu, Search } from 'lucide-react'
 
 const tabs = [
-  { label: '👤 기사 입력', path: '/dashboard/tab0', role: 'admin' },
-  { label: '📥 실적 입력', path: '/dashboard/tab1', role: 'admin' },
-  { label: '📊 실적 리포트', path: '/dashboard/tab2', role: 'admin' },
-  { label: '💸 기사 정산', path: '/dashboard/tab3', role: 'admin' },
-  { label: '📈 수익 요약', path: '/dashboard/tab4', role: 'admin' },
-  { label: '🧊 프레시백', path: '/dashboard/tab5', role: 'admin' },
-  { label: '🧾 최종 손익', path: '/dashboard/tab6', role: 'admin' },
-  { label: '🆕 기사 등록', path: '/dashboard/tab7', role: 'admin' }, 
-  { label: '⚙️ 단가 관리', path: '/dashboard/tab8', role: 'admin' },
-  { label: '✅ 실적 검수', path: '/dashboard/tab10', role: 'admin' }
+  { label: '실적 입력', path: '/dashboard/tab0', role: 'admin' },
+  { label: '실적(운영자) 입력', path: '/dashboard/tab1', role: 'admin' },
+  { label: '실적 리포트', path: '/dashboard/tab2', role: 'admin' },
+  { label: '기사 정산', path: '/dashboard/tab3', role: 'admin' },
+  { label: '수익 요약', path: '/dashboard/tab4', role: 'admin' },
+  { label: '프레시백', path: '/dashboard/tab5', role: 'admin' },
+  { label: '최종 손익', path: '/dashboard/tab6', role: 'admin' },
+  { label: '기사 등록', path: '/dashboard/tab7', role: 'admin' },
+  { label: '단가 관리', path: '/dashboard/tab8', role: 'admin' },
+  { label: '실적 검수', path: '/dashboard/tab10', role: 'admin' }
 ]
 
 export default function TabNavigation() {
@@ -44,20 +44,35 @@ export default function TabNavigation() {
   const visibleTabs = tabs.filter(tab => role === 'admin' || tab.role === 'driver')
 
   return (
-    <nav className="flex border-b bg-white sticky top-0 z-10 overflow-x-auto text-sm">
-      {visibleTabs.map(tab => (
-        <Link
-          key={tab.path}
-          href={tab.path}
-          className={`px-4 py-2 whitespace-nowrap border-b-2 transition-all ${
-            activePath === tab.path
-              ? 'border-blue-600 text-blue-600 font-bold'
-              : 'border-transparent text-gray-500 hover:text-black'
-          }`}
-        >
-          {tab.label}
-        </Link>
-      ))}
-    </nav>
+    <div className="w-full px-4 py-2 bg-[#F5F5F5]">
+      <div className="max-w-[1024px] mx-auto flex items-center justify-between bg-white rounded-full shadow-md px-3 h-[48px] overflow-x-auto whitespace-nowrap">
+        {/* 왼쪽 아이콘 */}
+        <button className="min-w-[32px] text-gray-500">
+          <Menu size={20} />
+        </button>
+
+        {/* 탭 목록 */}
+        <div className="flex flex-1 justify-center gap-2 overflow-x-auto px-2">
+          {visibleTabs.map(tab => (
+            <Link
+              key={tab.path}
+              href={tab.path}
+              className={`px-4 py-1 rounded-full text-sm transition-all font-medium
+                ${activePath === tab.path
+                  ? 'bg-white text-[#0088FF] font-semibold shadow-sm'
+                  : 'text-gray-500 hover:text-black'}
+              `}
+            >
+              {tab.label}
+            </Link>
+          ))}
+        </div>
+
+        {/* 오른쪽 아이콘 */}
+        <button className="min-w-[32px] text-gray-500">
+          <Search size={20} />
+        </button>
+      </div>
+    </div>
   )
 }
