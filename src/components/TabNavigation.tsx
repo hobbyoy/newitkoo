@@ -45,6 +45,9 @@ export default function MobileSidebarMenu() {
 
   return (
     <>
+      {/* 본문 밀어내기용 여백 */}
+      <div className="h-[80px] hidden lg:block"></div>
+
       {/* ☰ 모바일 메뉴 버튼 */}
       <div className="lg:hidden fixed top-4 left-4 z-50">
         <button
@@ -55,16 +58,16 @@ export default function MobileSidebarMenu() {
         </button>
       </div>
 
-      {/* 💻 데스크탑 상단바 네비게이션 */}
-      <div className="hidden lg:flex fixed top-4 left-1/2 -translate-x-1/2 z-40 bg-white/70 backdrop-blur-xl shadow-md border border-white/30 rounded-full px-4 py-2 gap-4 items-center max-w-[90%]">
+      {/* 💻 데스크탑 상단 네비게이션 (Glassmorphism + 중앙 정렬) */}
+      <div className="hidden lg:flex fixed top-4 left-1/2 -translate-x-1/2 z-40 bg-white/70 backdrop-blur-xl shadow-md border border-white/30 rounded-full px-3 py-2 gap-2 items-center max-w-[960px] overflow-x-auto whitespace-nowrap">
         {visibleTabs.map(tab => (
           <Link
             key={tab.path}
             href={tab.path}
-            className={`px-5 py-[10px] rounded-full text-[13px] font-medium transition-all duration-200 whitespace-nowrap shadow-sm
+            className={`px-4 py-2 rounded-full text-[12px] font-medium transition-all duration-200 whitespace-nowrap overflow-hidden text-ellipsis text-center max-w-[110px]
               ${activePath === tab.path
                 ? 'bg-[#0088FF] text-white shadow-md scale-[1.02]'
-                : 'text-[#333] hover:bg-[#0088FF]/10'}`}
+                : 'text-[#333] hover:text-black hover:bg-[#0088FF]/10'}`}
           >
             {tab.label}
           </Link>
