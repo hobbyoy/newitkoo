@@ -1,4 +1,4 @@
-// src/components/TabNavigation.tsx (사이드바 배경 반투명 회색 + 선택 탭은 화이트 배경 + 블루 테두리)
+// src/components/TabNavigation.tsx (휠바 제거, 돋보기 제거, 탭 자연스럽게 넓게 배치)
 'use client'
 
 import Link from 'next/link'
@@ -44,14 +44,14 @@ export default function TabNavigation() {
 
   return (
     <div className="w-full px-4 py-2" style={{ backgroundColor: '#A6A6A6B2' }}>
-      <div className="w-full mx-auto flex items-center justify-center rounded-full shadow-md px-4 py-2 min-h-[48px]">
+      <div className="w-full mx-auto flex items-center justify-between rounded-full shadow-md px-6 py-2 min-h-[48px]">
         {/* 탭 목록 */}
-        <div className="flex flex-wrap justify-center gap-2 w-full">
+        <div className="flex flex-1 justify-between gap-2 w-full">
           {visibleTabs.map(tab => (
             <Link
               key={tab.path}
               href={tab.path}
-              className={`px-5 py-[10px] rounded-full text-[14px] transition-all font-medium leading-none
+              className={`flex-1 text-center px-4 py-[10px] rounded-full text-[14px] transition-all font-medium leading-none
                 ${activePath === tab.path
                   ? 'bg-white text-[#0088FF] border border-[#0088FF] font-semibold'
                   : 'text-gray-600 hover:text-black bg-[#F0F0F0]'}
