@@ -1,3 +1,4 @@
+// ✅ tab1 최종 리디자인 반영 코드
 'use client'
 
 import { useState, useEffect, ChangeEvent } from 'react'
@@ -133,7 +134,7 @@ export default function Tab1() {
             <select
               value={selectedUid}
               onChange={(e) => setSelectedUid(e.target.value)}
-              className="w-full h-11 px-3 text-sm border rounded-md shadow-sm appearance-none font-semibold text-[#6C3BFF] bg-white"
+              className="w-full h-11 px-3 text-sm border border-[#0088FF] rounded-md shadow-sm appearance-none font-semibold text-[#0088FF] bg-white"
             >
               <option value="">Pick an option</option>
               {driverList.map((driver) => (
@@ -142,7 +143,7 @@ export default function Tab1() {
                 </option>
               ))}
             </select>
-            <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[#6C3BFF]">
+            <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[#0088FF]">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M19 9l-7 7-7-7" />
               </svg>
@@ -168,9 +169,18 @@ export default function Tab1() {
 
           <div>
             <label className="text-sm text-gray-700 font-medium mb-1 block">주/야</label>
-            <ToggleGroup type="single" value={form.shift} onValueChange={(value) => setForm({ ...form, shift: value || '' })} className="w-full">
-              <ToggleGroupItem value="주간" className="flex-1 h-11">주간</ToggleGroupItem>
-              <ToggleGroupItem value="야간" className="flex-1 h-11">야간</ToggleGroupItem>
+            <ToggleGroup
+              type="single"
+              value={form.shift}
+              onValueChange={(value) => setForm({ ...form, shift: value || '' })}
+              className="flex w-full border border-[#0088FF] rounded-md overflow-hidden"
+            >
+              <ToggleGroupItem value="주간" className="flex-1 h-11 text-sm font-medium data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">
+                주간
+              </ToggleGroupItem>
+              <ToggleGroupItem value="야간" className="flex-1 h-11 text-sm font-medium data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">
+                야간
+              </ToggleGroupItem>
             </ToggleGroup>
           </div>
 
@@ -197,20 +207,20 @@ export default function Tab1() {
         {allRoutes.length > 0 && (
           <div className="mt-10 border rounded-md bg-gray-50 p-4">
             <h2 className="text-sm font-semibold text-green-700 mb-2">📋 전체 등록된 노선 정보</h2>
-            <table className="w-full text-xs text-center border">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="border p-1">노선코드</th>
-                  <th className="border p-1">쿠팡ID</th>
-                  <th className="border p-1">주/야</th>
+            <table className="w-full text-sm text-center border border-gray-300">
+              <thead className="bg-gray-100 text-[#0088FF]">
+                <tr>
+                  <th className="border px-3 py-2">노선코드</th>
+                  <th className="border px-3 py-2">쿠팡ID</th>
+                  <th className="border px-3 py-2">주/야</th>
                 </tr>
               </thead>
               <tbody>
                 {allRoutes.map((r, i) => (
-                  <tr key={i}>
-                    <td className="border p-1">{r.routeCode}</td>
-                    <td className="border p-1">{r.coupangId}</td>
-                    <td className="border p-1">{r.shift}</td>
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="border px-3 py-2 font-medium">{r.routeCode}</td>
+                    <td className="border px-3 py-2">{r.coupangId}</td>
+                    <td className="border px-3 py-2">{r.shift}</td>
                   </tr>
                 ))}
               </tbody>
