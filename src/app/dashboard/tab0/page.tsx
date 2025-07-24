@@ -4,6 +4,11 @@ import { useState } from 'react'
 import { auth, db } from '@/lib/firebase'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import TabNavigation from '@/components/TabNavigation'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 
 export default function Tab0() {
   const [form, setForm] = useState({
@@ -22,11 +27,9 @@ export default function Tab0() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     const updatedForm = { ...form, [name]: value }
-
     const delivery = Number(updatedForm.deliveryCount || 0)
     const returns = Number(updatedForm.returnCount || 0)
     setTotalCount(delivery + returns)
-
     setForm(updatedForm)
     setErrors((prev) => ({ ...prev, [name]: false }))
   }
@@ -52,7 +55,6 @@ export default function Tab0() {
 
     const uid = user.uid
     const email = user.email || ''
-
     const userDoc = await getDoc(doc(db, 'Users', uid))
     if (!userDoc.exists()) {
       setMessage('❌ 사용자 정보가 없습니다.')
@@ -60,7 +62,6 @@ export default function Tab0() {
     }
 
     const name = userDoc.data()?.name || ''
-
     const key = `${uid}|${form.date}|${form.coupangId.toLowerCase()}|${form.route.toLowerCase()}`
     const docRef = doc(db, 'DailyRecords', key)
     const existing = await getDoc(docRef)
@@ -101,47 +102,80 @@ export default function Tab0() {
   }
 
   return (
-    <div>
+    <div className="bg-gray-50 min-h-screen">
       <TabNavigation />
-      <main className="p-6 max-w-md mx-auto">
-        <h1 className="text-2xl font-bold mb-4 text-blue-600">📥 기사 실적 입력 (tab0)</h1>
+      <main className="max-w-xl mx-auto p-6 space-y-6">
+        <h1 className="text-2xl font-bold text-blue-700">📥 기사 실적 입력 (Tab0)</h1>
 
-        <label className="font-semibold">배송일자 *</label>
-        <input name="date" type="date" value={form.date} onChange={handleChange} className="border p-2 mb-1 w-full" />
-        {errors.date && <p className="text-red-500 text-sm mb-2">필수 입력입니다.</p>}
+        <Card>
+          <CardContent className="p-6 space-y-4">
+            <div>
+              <Label>배송일자 *</Label>
+              <Input type="date" name="date" value={form.date} onChange={handleChange} />
+              {errors.date && <p className="text-red-500 text-sm">필수 입력입니다.</p>}
+            </div>
 
-        <label className="font-semibold">쿠팡 ID *</label>
-        <input name="coupangId" placeholder="예: cp1234" type="text" value={form.coupangId} onChange={handleChange} className="border p-2 mb-1 w-full" />
-        {errors.coupangId && <p className="text-red-500 text-sm mb-2">필수 입력입니다.</p>}
+            <div>
+              <Label>쿠팡 ID *</Label>
+              <Input name="coupangId" placeholder="예: cp1234" value={form.coupangId} onChange={handleChange} />
+              {errors.coupangId && <p className="text-red-500 text-sm">필수 입력입니다.</p>}
+            </div>
 
-        <label className="font-semibold">노선명 *</label>
-        <input name="route" placeholder="예: B101" type="text" value={form.route} onChange={handleChange} className="border p-2 mb-1 w-full" />
-        {errors.route && <p className="text-red-500 text-sm mb-2">필수 입력입니다.</p>}
+            <div>
+              <Label>노선명 *</Label>
+              <Input name="route" placeholder="예: B101" value={form.route} onChange={handleChange} />
+              {errors.route && <p className="text-red-500 text-sm">필수 입력입니다.</p>}
+            </div>
 
-        <label className="font-semibold">주/야 *</label>
-        <select name="shift" value={form.shift} onChange={handleChange} className="border p-2 mb-1 w-full">
-          <option value="">-- 선택하세요 --</option>
-          <option value="주간">주간</option>
-          <option value="야간">야간</option>
-        </select>
-        {errors.shift && <p className="text-red-500 text-sm mb-2">필수 입력입니다.</p>}
+            <div>
+              <Label>주/야 *</Label>
+              <select
+                name="shift"
+                value={form.shift}
+                onChange={handleChange}
+                className="border p-2 rounded w-full"
+              >
+                <option value="">-- 선택하세요 --</option>
+                <option value="주간">주간</option>
+                <option value="야간">야간</option>
+              </select>
+              {errors.shift && <p className="text-red-500 text-sm">필수 입력입니다.</p>}
+            </div>
 
-        <label className="font-semibold">배송 건수</label>
-        <input name="deliveryCount" type="number" min="0" value={form.deliveryCount} onChange={handleChange} className="border p-2 mb-3 w-full" />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>배송 건수</Label>
+                <Input
+                  name="deliveryCount"
+                  type="number"
+                  min="0"
+                  value={form.deliveryCount}
+                  onChange={handleChange}
+                />
+              </div>
+              <div>
+                <Label>반품 건수</Label>
+                <Input
+                  name="returnCount"
+                  type="number"
+                  min="0"
+                  value={form.returnCount}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
 
-        <label className="font-semibold">반품 건수</label>
-        <input name="returnCount" type="number" min="0" value={form.returnCount} onChange={handleChange} className="border p-2 mb-4 w-full" />
+            <div className="text-sm text-right text-gray-600">
+              총 건수: <b>{totalCount}</b> 건
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="text-sm mb-4 text-right text-gray-600">총 건수: <b>{totalCount}</b></div>
+        <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={handleSubmit}>
+          💾 실적 저장
+        </Button>
 
-        <button
-          onClick={handleSubmit}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full"
-        >
-          실적 저장
-        </button>
-
-        {message && <p className="mt-4 text-center text-sm whitespace-pre-wrap">{message}</p>}
+        {message && <p className="text-center text-sm whitespace-pre-wrap mt-2">{message}</p>}
       </main>
     </div>
   )
