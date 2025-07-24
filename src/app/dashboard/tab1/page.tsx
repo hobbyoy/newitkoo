@@ -1,3 +1,4 @@
+// ✅ tab1 전체 코드 - 커스텀 드롭다운 + 뉴모피즘 테이블 적용
 'use client'
 
 import { useState, useEffect, ChangeEvent } from 'react'
@@ -16,9 +17,10 @@ interface Driver {
 }
 
 interface Route {
-  routeCode: string
+  route: string
   coupangId: string
   shift: string
+  uid?: string
 }
 
 export default function Tab1() {
@@ -130,13 +132,13 @@ export default function Tab1() {
       <main className="max-w-md mx-auto py-10 px-4">
         <h1 className="text-xl font-semibold text-center text-[#0088FF] mb-6">📥 운영자 실적 입력</h1>
 
-        {/* 드롭다운 영역 */}
+        {/* 기사 선택 드롭다운 */}
         <div className="mb-4 relative">
           <label className="text-sm text-gray-700 font-medium mb-1 block">기사 선택</label>
           <button
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="w-full h-11 px-3 border border-[#0088FF] rounded-md shadow-sm text-left text-sm text-[#0088FF] font-semibold bg-white relative"
+            className="flex w-full border rounded-md shadow-sm text-left text-sm text-[#0088FF] font-semibold bg-white relative"
           >
             {selectedDriver ? `${selectedDriver.name} / ${selectedDriver.email}` : 'Pick an option'}
             <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
@@ -164,40 +166,27 @@ export default function Tab1() {
           )}
         </div>
 
-        {/* 나머지 입력 필드 */}
+        {/* 입력 폼 */}
         <div className="space-y-4">
-          <div>
-            <label className="text-sm text-gray-700 font-medium mb-1 block">배송일자</label>
-            <input name="date" type="date" value={form.date} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" />
-          </div>
-          <div>
-            <label className="text-sm text-gray-700 font-medium mb-1 block">쿠팡 ID</label>
-            <input name="coupangId" type="text" value={form.coupangId} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" />
-          </div>
-          <div>
-            <label className="text-sm text-gray-700 font-medium mb-1 block">노선명</label>
-            <input name="route" type="text" value={form.route} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" />
-          </div>
+          <input name="date" type="date" value={form.date} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" placeholder="배송일자" />
+          <input name="coupangId" type="text" value={form.coupangId} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" placeholder="쿠팡 ID" />
+          <input name="route" type="text" value={form.route} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" placeholder="노선명" />
+
           <div>
             <label className="text-sm text-gray-700 font-medium mb-1 block">주/야</label>
             <ToggleGroup
               type="single"
               value={form.shift}
               onValueChange={(value) => setForm({ ...form, shift: value || '' })}
-              className="flex w-full border border-[#0088FF] rounded-md overflow-hidden"
+              className="w-full h-11 px-3 border rounded-md rounded-md overflow-hidden"
             >
               <ToggleGroupItem value="주간" className="flex-1 h-11 text-sm font-medium data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">주간</ToggleGroupItem>
               <ToggleGroupItem value="야간" className="flex-1 h-11 text-sm font-medium data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">야간</ToggleGroupItem>
             </ToggleGroup>
           </div>
-          <div>
-            <label className="text-sm text-gray-700 font-medium mb-1 block">배송 건수</label>
-            <input name="deliveryCount" type="number" value={form.deliveryCount} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" />
-          </div>
-          <div>
-            <label className="text-sm text-gray-700 font-medium mb-1 block">반품 건수</label>
-            <input name="returnCount" type="number" value={form.returnCount} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" />
-          </div>
+
+          <input name="deliveryCount" type="number" value={form.deliveryCount} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" placeholder="배송 건수" />
+          <input name="returnCount" type="number" value={form.returnCount} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" placeholder="반품 건수" />
         </div>
 
         <button
@@ -209,27 +198,37 @@ export default function Tab1() {
 
         {message && <p className="text-green-600 text-sm font-semibold text-center whitespace-pre-wrap mt-4">{message}</p>}
 
+        {/* 뉴모피즘 테이블 */}
         {allRoutes.length > 0 && (
-          <div className="mt-10 border rounded-md bg-gray-50 p-4">
-            <h2 className="text-sm font-semibold text-green-700 mb-2">📋 전체 등록된 노선 정보</h2>
-            <table className="w-full text-sm text-center border border-gray-300">
-              <thead className="bg-gray-100 text-[#0088FF]">
-                <tr>
-                  <th className="border px-3 py-2">노선코드</th>
-                  <th className="border px-3 py-2">쿠팡ID</th>
-                  <th className="border px-3 py-2">주/야</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allRoutes.map((r, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
-                    <td className="border px-3 py-2 font-medium">{r.routeCode}</td>
-                    <td className="border px-3 py-2">{r.coupangId}</td>
-                    <td className="border px-3 py-2">{r.shift}</td>
+          <div className="mt-10 bg-white/50 backdrop-blur-md shadow-inner border border-gray-200 rounded-xl p-4">
+            <h2 className="text-sm font-semibold text-[#0088FF] mb-4">📋 등록된 기사 노선 정보</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-gray-700 rounded-lg">
+                <thead>
+                  <tr className="bg-white/40 backdrop-blur-md text-left text-[#0088FF] font-semibold tracking-wide">
+                    <th className="px-4 py-3">기사</th>
+                    <th className="px-4 py-3">노선명</th>
+                    <th className="px-4 py-3">쿠팡ID</th>
+                    <th className="px-4 py-3">주/야</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {allRoutes.map((r, i) => (
+                    <tr
+                      key={i}
+                      className={`${
+                        i % 2 === 0 ? 'bg-white/60' : 'bg-white/30'
+                      } hover:bg-white/70 transition`}
+                    >
+                      <td className="px-4 py-3">{driverList.find(d => d.uid === r.uid)?.name || 'N/A'}</td>
+                      <td className="px-4 py-3 font-medium">{r.route}</td>
+                      <td className="px-4 py-3">{r.coupangId}</td>
+                      <td className="px-4 py-3">{r.shift}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>
