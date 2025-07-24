@@ -8,16 +8,16 @@ import { auth, db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
 
 const tabs = [
-  { label: '실적 입력', path: '/dashboard/tab0', role: 'admin' },
-  { label: '실적 입력(운)', path: '/dashboard/tab1', role: 'admin' },
-  { label: '실적 리포트', path: '/dashboard/tab2', role: 'admin' },
-  { label: '기사 정산', path: '/dashboard/tab3', role: 'admin' },
-  { label: '수익 요약', path: '/dashboard/tab4', role: 'admin' },
+  { label: '실적입력', path: '/dashboard/tab0', role: 'admin' },
+  { label: '실적입력(운)', path: '/dashboard/tab1', role: 'admin' },
+  { label: '실적리포트', path: '/dashboard/tab2', role: 'admin' },
+  { label: '기사정산', path: '/dashboard/tab3', role: 'admin' },
+  { label: '수익요약', path: '/dashboard/tab4', role: 'admin' },
   { label: '프레시백', path: '/dashboard/tab5', role: 'admin' },
-  { label: '최종 손익', path: '/dashboard/tab6', role: 'admin' },
-  { label: '기사 등록', path: '/dashboard/tab7', role: 'admin' },
-  { label: '단가 관리', path: '/dashboard/tab8', role: 'admin' },
-  { label: '실적 검수', path: '/dashboard/tab10', role: 'admin' }
+  { label: '최종손익', path: '/dashboard/tab6', role: 'admin' },
+  { label: '기사등록', path: '/dashboard/tab7', role: 'admin' },
+  { label: '단가관리', path: '/dashboard/tab8', role: 'admin' },
+  { label: '실적검수', path: '/dashboard/tab10', role: 'admin' }
 ]
 
 export default function MobileSidebarMenu() {
@@ -64,7 +64,7 @@ export default function MobileSidebarMenu() {
           <Link
             key={tab.path}
             href={tab.path}
-            className={`px-4 py-2 rounded-full text-[12px] font-medium transition-all duration-200 whitespace-nowrap overflow-hidden text-ellipsis text-center max-w-[110px]
+            className={`px-3 py-[6px] rounded-full text-[11px] font-medium transition-all duration-200 whitespace-nowrap text-center max-w-[128px]
               ${activePath === tab.path
                 ? 'bg-[#0088FF] text-white shadow-md scale-[1.02]'
                 : 'text-[#333] hover:text-black hover:bg-[#0088FF]/10'}`}
