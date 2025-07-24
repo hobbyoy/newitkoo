@@ -1,4 +1,4 @@
-// ✅ tab1 전체 코드 - 커스텀 드롭다운 + 뉴모피즘 테이블 적용
+// ✅ tab1 전체 코드 - 기사 이름 포함 저장 + 드롭다운/토글 크기 맞춤
 'use client'
 
 import { useState, useEffect, ChangeEvent } from 'react'
@@ -20,7 +20,7 @@ interface Route {
   route: string
   coupangId: string
   shift: string
-  uid?: string
+  driverName: string
 }
 
 export default function Tab1() {
@@ -60,37 +60,24 @@ export default function Tab1() {
       return
     }
 
-    const key = `${selectedUid}|${date}|${coupangId.toLowerCase()}|${route.toLowerCase()}`
-    const docRef = doc(db, 'DailyRecords', key)
-    const existing = await getDoc(docRef)
-    if (existing.exists()) {
-      alert('⚠️ 동일한 실적이 이미 존재합니다.')
-      return
-    }
-
     const routeKey = `${route.toLowerCase()}_${coupangId.toLowerCase()}`.toUpperCase()
-    const routeCheck = await getDoc(doc(db, 'Routes', routeKey))
-    if (!routeCheck.exists()) {
-      alert(`❌ 등록되지 않은 노선입니다.\n\n노선코드: ${route} / 쿠팡ID: ${coupangId}`)
+    const docRef = doc(db, 'Routes', routeKey)
+    const routeCheck = await getDoc(docRef)
+    if (routeCheck.exists()) {
+      alert('⚠️ 동일한 노선이 이미 존재합니다.')
       return
     }
 
     try {
       await setDoc(docRef, {
-        uid: selectedUid,
-        email: selectedDriver.email,
-        name: selectedDriver.name,
-        deliveryDate: date,
-        coupangId: coupangId.toLowerCase(),
         route: route.toLowerCase(),
+        coupangId: coupangId.toLowerCase(),
         shift,
-        deliveryCount: Number(deliveryCount),
-        returnCount: Number(returnCount),
-        totalCount: Number(deliveryCount) + Number(returnCount),
+        driverName: selectedDriver.name,
         createdAt: serverTimestamp(),
       })
 
-      setMessage('✅ 실적이 저장되었습니다.')
+      setMessage('✅ 노선 정보가 저장되었습니다.')
       setForm({
         date: '',
         coupangId: '',
@@ -138,7 +125,7 @@ export default function Tab1() {
           <button
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex w-full border rounded-md shadow-sm text-left text-sm text-[#0088FF] font-semibold bg-white relative"
+            className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm text-left font-medium bg-white relative"
           >
             {selectedDriver ? `${selectedDriver.name} / ${selectedDriver.email}` : 'Pick an option'}
             <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
@@ -178,10 +165,10 @@ export default function Tab1() {
               type="single"
               value={form.shift}
               onValueChange={(value) => setForm({ ...form, shift: value || '' })}
-              className="w-full h-11 px-3 border rounded-md rounded-md overflow-hidden"
+              className="flex w-full border rounded-md overflow-hidden"
             >
-              <ToggleGroupItem value="주간" className="flex-1 h-11 text-sm font-medium data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">주간</ToggleGroupItem>
-              <ToggleGroupItem value="야간" className="flex-1 h-11 text-sm font-medium data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">야간</ToggleGroupItem>
+              <ToggleGroupItem value="주간" className="flex-1 h-11 px-3 py-2 text-sm font-medium flex items-center justify-center data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">주간</ToggleGroupItem>
+              <ToggleGroupItem value="야간" className="flex-1 h-11 px-3 py-2 text-sm font-medium flex items-center justify-center data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">야간</ToggleGroupItem>
             </ToggleGroup>
           </div>
 
@@ -198,7 +185,7 @@ export default function Tab1() {
 
         {message && <p className="text-green-600 text-sm font-semibold text-center whitespace-pre-wrap mt-4">{message}</p>}
 
-        {/* 뉴모피즘 테이블 */}
+        {/* 등록된 노선 테이블 */}
         {allRoutes.length > 0 && (
           <div className="mt-10 bg-white/50 backdrop-blur-md shadow-inner border border-gray-200 rounded-xl p-4">
             <h2 className="text-sm font-semibold text-[#0088FF] mb-4">📋 등록된 기사 노선 정보</h2>
@@ -220,7 +207,7 @@ export default function Tab1() {
                         i % 2 === 0 ? 'bg-white/60' : 'bg-white/30'
                       } hover:bg-white/70 transition`}
                     >
-                      <td className="px-4 py-3">{driverList.find(d => d.uid === r.uid)?.name || 'N/A'}</td>
+                      <td className="px-4 py-3 font-medium">{r.driverName}</td>
                       <td className="px-4 py-3 font-medium">{r.route}</td>
                       <td className="px-4 py-3">{r.coupangId}</td>
                       <td className="px-4 py-3">{r.shift}</td>
