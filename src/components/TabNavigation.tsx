@@ -1,3 +1,4 @@
+// MobileSidebarMenu.tsx — 데스크탑은 상단바, 모바일은 왼쪽 슬라이드 메뉴
 'use client'
 
 import Link from 'next/link'
@@ -44,7 +45,7 @@ export default function MobileSidebarMenu() {
 
   return (
     <>
-      {/* ☰ 모바일 토글 버튼 */}
+      {/* ☰ 모바일 메뉴 버튼 */}
       <div className="lg:hidden fixed top-4 left-4 z-50">
         <button
           onClick={() => setShowMobileMenu(!showMobileMenu)}
@@ -54,17 +55,16 @@ export default function MobileSidebarMenu() {
         </button>
       </div>
 
-      {/* 💻 데스크탑 사이드바 (hover 확장형 + glass 효과) */}
-      <div className="hidden lg:flex fixed top-0 left-0 h-screen w-[72px] hover:w-[240px] transition-all duration-300 ease-in-out bg-white/30 backdrop-blur-xl border-r border-white/20 shadow-2xl z-40 flex-col px-4 pt-10 gap-4">
+      {/* 💻 데스크탑 상단바 네비게이션 */}
+      <div className="hidden lg:flex w-full fixed top-0 left-0 z-40 bg-white/60 backdrop-blur-md border-b border-white/30 shadow-md px-6 h-[56px] items-center gap-6">
         {visibleTabs.map(tab => (
           <Link
             key={tab.path}
             href={tab.path}
-            className={`block px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-              activePath === tab.path
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap
+              ${activePath === tab.path
                 ? 'bg-[#0088FF] text-white shadow-md scale-[1.02]'
-                : 'text-[#333] hover:bg-[#0088FF]/10'
-            }`}
+                : 'text-[#333] hover:bg-[#0088FF]/10'}`}
           >
             {tab.label}
           </Link>
@@ -73,9 +73,8 @@ export default function MobileSidebarMenu() {
 
       {/* 📱 모바일 왼쪽 슬라이드 메뉴 */}
       <div
-        className={`fixed top-0 left-0 h-screen w-[240px] z-40 bg-white/80 backdrop-blur-xl rounded-r-2xl shadow-2xl transform transition-transform duration-300 ease-in-out ${
-          showMobileMenu ? 'translate-x-0' : '-translate-x-full'
-        } lg:hidden`}
+        className={`fixed top-0 left-0 h-screen w-[240px] z-40 bg-white/80 backdrop-blur-xl rounded-r-2xl shadow-2xl transform transition-transform duration-300 ease-in-out
+          ${showMobileMenu ? 'translate-x-0' : '-translate-x-full'} lg:hidden`}
       >
         <div className="p-5 pt-10 flex flex-col gap-4">
           {visibleTabs.map(tab => (
@@ -83,11 +82,10 @@ export default function MobileSidebarMenu() {
               key={tab.path}
               href={tab.path}
               onClick={() => setShowMobileMenu(false)}
-              className={`block px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                activePath === tab.path
+              className={`block px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                ${activePath === tab.path
                   ? 'bg-[#0088FF] text-white shadow-md scale-[1.02]'
-                  : 'text-[#333] hover:bg-[#0088FF]/10'
-              }`}
+                  : 'text-[#333] hover:bg-[#0088FF]/10'}`}
             >
               {tab.label}
             </Link>
