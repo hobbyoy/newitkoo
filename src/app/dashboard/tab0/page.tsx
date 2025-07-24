@@ -132,7 +132,7 @@ export default function Tab0() {
                   }
                 }}
                 className="rounded-md"
-                modifiersClassNames={{ selected: 'bg-[#005CB9] text-white' }}
+                modifiersClassNames={{ selected: 'bg-[#0088FF] text-white' }}
               />
             </PopoverContent>
           </Popover>
@@ -199,9 +199,9 @@ export default function Tab0() {
         >
           <ToggleGroupItem
             value="주간"
-            className={`flex items-center justify-center w-[154px] h-[33px] px-[10px] py-[3px] text-sm font-medium rounded-full transition-all ${
+            className={`flex items-center justify-center w-[154px] h-[33px] px-[10px] py-[3px] text-sm font-medium rounded-[20px] transition-all ${
               form.shift === '주간'
-                ? 'bg-[#005CB9] text-white shadow-[0_1px_1px_rgba(0,0,0,0.19),0_2px_2px_rgba(0,0,0,0.25)]'
+                ? 'bg-[#0088FF] text-white shadow-[0_1px_1px_rgba(0,0,0,0.19),0_2px_2px_rgba(0,0,0,0.25)]'
                 : 'text-gray-700 bg-transparent'
             }`}
           >
@@ -210,9 +210,9 @@ export default function Tab0() {
 
           <ToggleGroupItem
             value="야간"
-            className={`flex items-center justify-center w-[154px] h-[33px] px-[10px] py-[3px] text-sm font-medium rounded-full transition-all ${
+            className={`flex items-center justify-center w-[154px] h-[33px] px-[10px] py-[3px] text-sm font-medium rounded-[20px] transition-all ${
               form.shift === '야간'
-                ? 'bg-[#005CB9] text-white shadow-[0_1px_1px_rgba(0,0,0,0.19),0_2px_2px_rgba(0,0,0,0.25)]'
+                ? 'bg-[#0088FF] text-white shadow-[0_1px_1px_rgba(0,0,0,0.19),0_2px_2px_rgba(0,0,0,0.25)]'
                 : 'text-gray-700 bg-transparent'
             }`}
           >
