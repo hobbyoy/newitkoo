@@ -1,4 +1,4 @@
-// src/components/TabNavigation.tsx (피그마 스타일 적용, 아이콘 제거 + 슬림형 탭바)
+// src/components/TabNavigation.tsx (휠바 제거 + 심플 탭바)
 'use client'
 
 import Link from 'next/link'
@@ -44,14 +44,14 @@ export default function TabNavigation() {
 
   return (
     <div className="w-full px-4 py-2 bg-[#F5F5F5]">
-      <div className="max-w-[1024px] mx-auto flex items-center justify-center bg-white rounded-full shadow-md px-3 h-[40px] overflow-x-auto whitespace-nowrap">
+      <div className="max-w-[1024px] mx-auto flex items-center justify-center bg-white rounded-full shadow-md px-3 h-[44px]">
         {/* 탭 목록 */}
-        <div className="flex flex-1 justify-center gap-2 overflow-x-auto px-2">
+        <div className="flex flex-1 justify-center gap-3 px-2 overflow-hidden">
           {visibleTabs.map(tab => (
             <Link
               key={tab.path}
               href={tab.path}
-              className={`px-4 py-[6px] rounded-full text-[13px] transition-all font-medium min-w-max
+              className={`px-4 py-2 rounded-full text-[14px] transition-all font-medium
                 ${activePath === tab.path
                   ? 'bg-white text-[#0088FF] font-semibold shadow-sm'
                   : 'text-gray-500 hover:text-black'}
