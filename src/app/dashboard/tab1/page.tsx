@@ -1,4 +1,3 @@
-// ✅ tab1 최종 리디자인 반영 코드
 'use client'
 
 import { useState, useEffect, ChangeEvent } from 'react'
@@ -28,6 +27,7 @@ export default function Tab1() {
   const [driverList, setDriverList] = useState<Driver[]>([])
   const [selectedUid, setSelectedUid] = useState('')
   const [allRoutes, setAllRoutes] = useState<Route[]>([])
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const [form, setForm] = useState({
     date: '',
@@ -40,6 +40,8 @@ export default function Tab1() {
 
   const [message, setMessage] = useState('')
 
+  const selectedDriver = driverList.find((d) => d.uid === selectedUid)
+
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
@@ -51,7 +53,6 @@ export default function Tab1() {
       return
     }
 
-    const selectedDriver = driverList.find((d) => d.uid === selectedUid)
     if (!selectedDriver) {
       alert('❌ 선택된 기사 정보가 없습니다.')
       return
@@ -96,6 +97,7 @@ export default function Tab1() {
         deliveryCount: '',
         returnCount: '',
       })
+      setSelectedUid('')
     } catch (err) {
       if (err instanceof Error) {
         console.error(err)
@@ -128,45 +130,54 @@ export default function Tab1() {
       <main className="max-w-md mx-auto py-10 px-4">
         <h1 className="text-xl font-semibold text-center text-[#0088FF] mb-6">📥 운영자 실적 입력</h1>
 
+        {/* 드롭다운 영역 */}
         <div className="mb-4 relative">
           <label className="text-sm text-gray-700 font-medium mb-1 block">기사 선택</label>
-          <div className="relative">
-            <select
-              value={selectedUid}
-              onChange={(e) => setSelectedUid(e.target.value)}
-              className="w-full h-11 px-3 text-sm border border-[#0088FF] rounded-md shadow-sm appearance-none font-semibold text-[#0088FF] bg-white"
-            >
-              <option value="">Pick an option</option>
-              {driverList.map((driver) => (
-                <option key={driver.uid} value={driver.uid} className="text-black">
-                  {driver.name} / {driver.email}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[#0088FF]">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <button
+            type="button"
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="w-full h-11 px-3 border border-[#0088FF] rounded-md shadow-sm text-left text-sm text-[#0088FF] font-semibold bg-white relative"
+          >
+            {selectedDriver ? `${selectedDriver.name} / ${selectedDriver.email}` : 'Pick an option'}
+            <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+              <svg className="w-4 h-4" fill="none" stroke="#0088FF" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M19 9l-7 7-7-7" />
               </svg>
-            </div>
-          </div>
+            </span>
+          </button>
+
+          {dropdownOpen && (
+            <ul className="absolute z-10 mt-2 w-full max-h-60 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg">
+              {driverList.map((driver) => (
+                <li
+                  key={driver.uid}
+                  onClick={() => {
+                    setSelectedUid(driver.uid)
+                    setDropdownOpen(false)
+                  }}
+                  className="px-4 py-2 text-sm cursor-pointer hover:bg-[#0088FF]/20 hover:text-[#0088FF] transition-colors"
+                >
+                  {driver.name} / {driver.email}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
+        {/* 나머지 입력 필드 */}
         <div className="space-y-4">
           <div>
             <label className="text-sm text-gray-700 font-medium mb-1 block">배송일자</label>
-            <input name="date" type="date" value={form.date} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0088FF]" />
+            <input name="date" type="date" value={form.date} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" />
           </div>
-
           <div>
             <label className="text-sm text-gray-700 font-medium mb-1 block">쿠팡 ID</label>
-            <input name="coupangId" type="text" value={form.coupangId} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0088FF]" />
+            <input name="coupangId" type="text" value={form.coupangId} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" />
           </div>
-
           <div>
             <label className="text-sm text-gray-700 font-medium mb-1 block">노선명</label>
-            <input name="route" type="text" value={form.route} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0088FF]" />
+            <input name="route" type="text" value={form.route} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" />
           </div>
-
           <div>
             <label className="text-sm text-gray-700 font-medium mb-1 block">주/야</label>
             <ToggleGroup
@@ -175,23 +186,17 @@ export default function Tab1() {
               onValueChange={(value) => setForm({ ...form, shift: value || '' })}
               className="flex w-full border border-[#0088FF] rounded-md overflow-hidden"
             >
-              <ToggleGroupItem value="주간" className="flex-1 h-11 text-sm font-medium data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">
-                주간
-              </ToggleGroupItem>
-              <ToggleGroupItem value="야간" className="flex-1 h-11 text-sm font-medium data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">
-                야간
-              </ToggleGroupItem>
+              <ToggleGroupItem value="주간" className="flex-1 h-11 text-sm font-medium data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">주간</ToggleGroupItem>
+              <ToggleGroupItem value="야간" className="flex-1 h-11 text-sm font-medium data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">야간</ToggleGroupItem>
             </ToggleGroup>
           </div>
-
           <div>
             <label className="text-sm text-gray-700 font-medium mb-1 block">배송 건수</label>
-            <input name="deliveryCount" type="number" value={form.deliveryCount} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0088FF]" />
+            <input name="deliveryCount" type="number" value={form.deliveryCount} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" />
           </div>
-
           <div>
             <label className="text-sm text-gray-700 font-medium mb-1 block">반품 건수</label>
-            <input name="returnCount" type="number" value={form.returnCount} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0088FF]" />
+            <input name="returnCount" type="number" value={form.returnCount} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" />
           </div>
         </div>
 
