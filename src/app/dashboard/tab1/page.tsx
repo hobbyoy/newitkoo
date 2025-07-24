@@ -7,6 +7,7 @@ import {
   collection, getDocs, doc, getDoc, setDoc, serverTimestamp
 } from 'firebase/firestore'
 import TabNavigation from '@/components/TabNavigation'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 interface Driver {
   uid: string
@@ -123,15 +124,15 @@ export default function Tab1() {
     <div>
       <TabNavigation />
 
-      <main className="p-6 max-w-2xl mx-auto">
-        <h1 className="text-xl font-bold mb-6 text-blue-600">📥 운영자 실적 입력 (tab1)</h1>
+      <main className="max-w-md mx-auto py-10 px-4">
+        <h1 className="text-xl font-semibold text-center text-[#0088FF] mb-6">📥 운영자 실적 입력</h1>
 
         <div className="mb-4">
-          <label className="block mb-1 text-sm font-semibold">기사 선택</label>
+          <label className="text-sm text-gray-700 font-medium mb-1 block">기사 선택</label>
           <select
             value={selectedUid}
             onChange={(e) => setSelectedUid(e.target.value)}
-            className="border p-2 w-full"
+            className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0088FF]"
           >
             <option value="">기사 선택</option>
             {driverList.map((driver) => (
@@ -142,53 +143,52 @@ export default function Tab1() {
           </select>
         </div>
 
-        <div className="grid grid-cols-1 gap-3">
+        <div className="space-y-4">
           <div>
-            <label className="block text-sm">배송일자</label>
-            <input name="date" type="date" value={form.date} onChange={handleChange} className="border p-2 w-full" />
+            <label className="text-sm text-gray-700 font-medium mb-1 block">배송일자</label>
+            <input name="date" type="date" value={form.date} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0088FF]" />
           </div>
 
           <div>
-            <label className="block text-sm">쿠팡 ID</label>
-            <input name="coupangId" type="text" value={form.coupangId} onChange={handleChange} className="border p-2 w-full" />
+            <label className="text-sm text-gray-700 font-medium mb-1 block">쿠팡 ID</label>
+            <input name="coupangId" type="text" value={form.coupangId} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0088FF]" />
           </div>
 
           <div>
-            <label className="block text-sm">노선명</label>
-            <input name="route" type="text" value={form.route} onChange={handleChange} className="border p-2 w-full" />
+            <label className="text-sm text-gray-700 font-medium mb-1 block">노선명</label>
+            <input name="route" type="text" value={form.route} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0088FF]" />
           </div>
 
           <div>
-            <label className="block text-sm">주/야</label>
-            <select name="shift" value={form.shift} onChange={handleChange} className="border p-2 w-full">
-              <option value="">선택</option>
-              <option value="주간">주간</option>
-              <option value="야간">야간</option>
-            </select>
+            <label className="text-sm text-gray-700 font-medium mb-1 block">주/야</label>
+            <ToggleGroup type="single" value={form.shift} onValueChange={(value) => setForm({ ...form, shift: value || '' })} className="w-full">
+              <ToggleGroupItem value="주간" className="flex-1 h-11">주간</ToggleGroupItem>
+              <ToggleGroupItem value="야간" className="flex-1 h-11">야간</ToggleGroupItem>
+            </ToggleGroup>
           </div>
 
           <div>
-            <label className="block text-sm">배송 건수</label>
-            <input name="deliveryCount" type="number" value={form.deliveryCount} onChange={handleChange} className="border p-2 w-full" />
+            <label className="text-sm text-gray-700 font-medium mb-1 block">배송 건수</label>
+            <input name="deliveryCount" type="number" value={form.deliveryCount} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0088FF]" />
           </div>
 
           <div>
-            <label className="block text-sm">반품 건수</label>
-            <input name="returnCount" type="number" value={form.returnCount} onChange={handleChange} className="border p-2 w-full" />
+            <label className="text-sm text-gray-700 font-medium mb-1 block">반품 건수</label>
+            <input name="returnCount" type="number" value={form.returnCount} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0088FF]" />
           </div>
         </div>
 
         <button
           onClick={handleSubmit}
-          className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full"
+          className="mt-6 w-full h-11 rounded-md border text-sm font-semibold bg-[#0088FF] text-white shadow-md hover:brightness-110"
         >
-          실적 저장
+          저장하기
         </button>
 
-        {message && <p className="mt-4 text-center text-sm text-green-600 font-semibold whitespace-pre-wrap">{message}</p>}
+        {message && <p className="text-green-600 text-sm font-semibold text-center whitespace-pre-wrap mt-4">{message}</p>}
 
         {allRoutes.length > 0 && (
-          <div className="mt-10 border rounded p-4 bg-gray-50">
+          <div className="mt-10 border rounded-md bg-gray-50 p-4">
             <h2 className="text-sm font-semibold text-green-700 mb-2">📋 전체 등록된 노선 정보</h2>
             <table className="w-full text-xs text-center border">
               <thead>
