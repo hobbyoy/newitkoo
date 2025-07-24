@@ -1,4 +1,4 @@
-// src/components/TabNavigation.tsx (휠바 제거, 돋보기 제거, 탭 자연스럽게 넓게 배치)
+// src/components/TabNavigation.tsx (피그마 스타일에 맞춰 심플하고 정중앙 정렬된 탭바)
 'use client'
 
 import Link from 'next/link'
@@ -43,18 +43,17 @@ export default function TabNavigation() {
   const visibleTabs = tabs.filter(tab => role === 'admin' || tab.role === 'driver')
 
   return (
-    <div className="w-full px-4 py-2" style={{ backgroundColor: '#A6A6A6B2' }}>
-      <div className="w-full mx-auto flex items-center justify-between rounded-full shadow-md px-6 py-2 min-h-[48px]">
-        {/* 탭 목록 */}
-        <div className="flex flex-1 justify-between gap-2 w-full">
+    <div className="w-full px-4 py-2 bg-transparent">
+      <div className="w-full max-w-[800px] mx-auto bg-[#F0F0F0] rounded-full shadow-sm flex items-center px-2 h-[48px] overflow-hidden">
+        <div className="flex w-full justify-between items-center">
           {visibleTabs.map(tab => (
             <Link
               key={tab.path}
               href={tab.path}
-              className={`flex-1 text-center px-4 py-[10px] rounded-full text-[14px] transition-all font-medium leading-none
-                ${activePath === tab.path
-                  ? 'bg-white text-[#0088FF] border border-[#0088FF] font-semibold'
-                  : 'text-gray-600 hover:text-black bg-[#F0F0F0]'}
+              className={`px-4 py-[6px] rounded-full text-sm font-medium text-center transform transition-all duration-200 ease-in-out
+             ${activePath === tab.path
+              ? 'bg-white text-[#0088FF] font-semibold shadow-md scale-[1.03]'
+               : 'text-[#444] hover:text-black hover:scale-[1.01]'}
               `}
             >
               {tab.label}
