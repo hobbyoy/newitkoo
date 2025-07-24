@@ -1,4 +1,3 @@
-// src/components/TabNavigation.tsx (피그마 스타일에 맞춰 심플하고 정중앙 정렬된 탭바)
 'use client'
 
 import Link from 'next/link'
@@ -24,6 +23,7 @@ export default function TabNavigation() {
   const pathname = usePathname()
   const [activePath, setActivePath] = useState(pathname)
   const [role, setRole] = useState('')
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
 
   useEffect(() => {
     setActivePath(pathname)
@@ -43,24 +43,57 @@ export default function TabNavigation() {
   const visibleTabs = tabs.filter(tab => role === 'admin' || tab.role === 'driver')
 
   return (
-    <div className="w-full px-4 py-2 bg-transparent">
-      <div className="w-full max-w-[1120px] mx-auto bg-[#F0F0F0] rounded-full shadow-sm flex items-center px-2 h-[48px] overflow-hidden">
-        <div className="flex w-full justify-between items-center">
+    <>
+      {/* 모바일 메뉴 버튼 */}
+      <div className="lg:hidden fixed top-4 right-4 z-50">
+        <button
+          onClick={() => setShowMobileMenu(!showMobileMenu)}
+          className="px-3 py-2 bg-[#0088FF] text-white rounded-md shadow-md text-sm"
+        >
+          메뉴
+        </button>
+      </div>
+
+      {/* 모바일 메뉴 드롭다운 */}
+      {showMobileMenu && (
+        <div className="fixed top-16 right-4 z-50 bg-white rounded-lg shadow-lg p-4 flex flex-col gap-2 w-60">
           {visibleTabs.map(tab => (
             <Link
               key={tab.path}
               href={tab.path}
-              className={`px-6 py-[8px] rounded-full text-[12px] font-medium transition-all text-center whitespace-nowrap overflow-hidden text-ellipsis
-                ${activePath === tab.path
-                  ? 'bg-white text-[#0088FF] font-semibold'
-                  : 'text-[#444] hover:text-black'}
-              `}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activePath === tab.path
+                  ? 'bg-[#0088FF] text-white'
+                  : 'text-[#333] hover:bg-gray-100'
+              }`}
+              onClick={() => setShowMobileMenu(false)}
             >
               {tab.label}
             </Link>
           ))}
         </div>
+      )}
+
+      {/* 데스크탑용 탭 네비게이션 */}
+      <div className="hidden lg:block w-full px-4 py-2 bg-transparent">
+        <div className="w-full max-w-[1120px] mx-auto bg-[#F0F0F0] rounded-full shadow-sm flex items-center px-2 h-[48px] overflow-hidden">
+          <div className="flex w-full justify-between items-center">
+            {visibleTabs.map(tab => (
+              <Link
+                key={tab.path}
+                href={tab.path}
+                className={`px-6 py-[8px] rounded-full text-[12px] font-medium text-center transform transition-all duration-200 ease-in-out whitespace-nowrap overflow-hidden text-ellipsis
+                  ${activePath === tab.path
+                    ? 'bg-white text-[#0088FF] font-semibold shadow-md scale-105'
+                    : 'text-[#444] hover:text-black hover:scale-105'}
+                `}
+              >
+                {tab.label}
+              </Link>
+            ))}
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
