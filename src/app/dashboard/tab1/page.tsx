@@ -121,13 +121,13 @@ export default function Tab1() {
 
         {/* 기사 선택 드롭다운 */}
         <div className="mb-4 relative">
-          <label className="text-sm text-gray-700 font-medium mb-1 block">기사 선택</label>
+          
           <button
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm text-left font-medium bg-white relative"
           >
-            {selectedDriver ? `${selectedDriver.name} / ${selectedDriver.email}` : 'Pick an option'}
+            {selectedDriver ? `${selectedDriver.name} / ${selectedDriver.email}` : '기사선택'}
             <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
               <svg className="w-4 h-4" fill="none" stroke="#0088FF" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M19 9l-7 7-7-7" />
@@ -160,7 +160,7 @@ export default function Tab1() {
           <input name="route" type="text" value={form.route} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" placeholder="노선명" />
 
           <div>
-            <label className="text-sm text-gray-700 font-medium mb-1 block">주/야</label>
+            
             <ToggleGroup
               type="single"
               value={form.shift}
