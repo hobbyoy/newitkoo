@@ -188,38 +188,39 @@ export default function Tab0() {
               className="h-[48px] px-3 text-sm border-gray-300"
             />
           </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-gray-700">주야간 선택</label>
+            <ToggleGroup
+              type="single"
+              value={form.shift}
+              onValueChange={(value) => setForm({ ...form, shift: value || '' })}
+              className="w-full h-[48px] flex px-[3px] py-[3px] border border-gray-300 rounded-lg bg-white"
+            >
+              <ToggleGroupItem
+                value="주간"
+                className={`flex items-center justify-center w-1/2 text-sm font-medium rounded-[12px] transition-all ${
+                  form.shift === '주간'
+                    ? 'bg-[#0088FF] text-white shadow-[0_1px_1px_rgba(0,0,0,0.19),0_2px_2px_rgba(0,0,0,0.25)]'
+                    : 'text-gray-700'
+                }`}
+              >
+                주간
+              </ToggleGroupItem>
+
+              <ToggleGroupItem
+                value="야간"
+                className={`flex items-center justify-center w-1/2 text-sm font-medium rounded-[12px] transition-all ${
+                  form.shift === '야간'
+                    ? 'bg-[#0088FF] text-white shadow-[0_1px_1px_rgba(0,0,0,0.19),0_2px_2px_rgba(0,0,0,0.25)]'
+                    : 'text-gray-700'
+                }`}
+              >
+                야간
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </div>
-
-        {/* 주야간 선택 */}
-        <ToggleGroup
-          type="single"
-          value={form.shift}
-          onValueChange={(value) => setForm({ ...form, shift: value || '' })}
-          className="flex w-[307px] h-[41px] px-1 py-1 rounded-full border border-[#E0E0E0] bg-white shadow-inner"
-        >
-          <ToggleGroupItem
-            value="주간"
-            className={`flex items-center justify-center w-[154px] h-[33px] px-[10px] py-[3px] text-sm font-medium rounded-[20px] transition-all ${
-              form.shift === '주간'
-                ? 'bg-[#0088FF] text-white shadow-[0_1px_1px_rgba(0,0,0,0.19),0_2px_2px_rgba(0,0,0,0.25)]'
-                : 'text-gray-700 bg-transparent'
-            }`}
-          >
-            주간
-          </ToggleGroupItem>
-
-          <ToggleGroupItem
-            value="야간"
-            className={`flex items-center justify-center w-[154px] h-[33px] px-[10px] py-[3px] text-sm font-medium rounded-[20px] transition-all ${
-              form.shift === '야간'
-                ? 'bg-[#0088FF] text-white shadow-[0_1px_1px_rgba(0,0,0,0.19),0_2px_2px_rgba(0,0,0,0.25)]'
-                : 'text-gray-700 bg-transparent'
-            }`}
-          >
-            야간
-          </ToggleGroupItem>
-        </ToggleGroup>
-        {errors.shift && <p className="text-red-500 text-xs mt-1">필수 입력입니다.</p>}
 
         {/* 저장 버튼 */}
         <Button
