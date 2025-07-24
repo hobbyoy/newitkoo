@@ -56,12 +56,12 @@ export default function MobileSidebarMenu() {
       </div>
 
       {/* 💻 데스크탑 상단바 네비게이션 */}
-      <div className="hidden lg:flex w-full fixed top-0 left-0 z-40 bg-white/60 backdrop-blur-md border-b border-white/30 shadow-md px-6 h-[56px] items-center gap-6">
+      <div className="hidden lg:flex fixed top-4 left-1/2 -translate-x-1/2 z-40 bg-white/70 backdrop-blur-xl shadow-md border border-white/30 rounded-full px-4 py-2 gap-4 items-center max-w-[90%]">
         {visibleTabs.map(tab => (
           <Link
             key={tab.path}
             href={tab.path}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap
+            className={`px-5 py-[10px] rounded-full text-[13px] font-medium transition-all duration-200 whitespace-nowrap shadow-sm
               ${activePath === tab.path
                 ? 'bg-[#0088FF] text-white shadow-md scale-[1.02]'
                 : 'text-[#333] hover:bg-[#0088FF]/10'}`}
