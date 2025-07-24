@@ -1,4 +1,4 @@
-// tab0/page.tsx (Figma 스타일 1:1 완성 코드)
+// tab0/page.tsx (Figma 이미지 1:1 기반 스타일 반영)
 'use client'
 
 import { useState } from 'react'
@@ -109,53 +109,58 @@ export default function Tab0() {
       <main className="max-w-md mx-auto py-10 px-6 flex flex-col items-center space-y-6">
         <h1 className="text-2xl font-bold text-center">일일 운행 등록</h1>
 
-        {/* 날짜 선택 */}
-        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full justify-between border rounded-lg text-base font-normal"
-            >
-              {form.date ? form.date : '배송일 선택'}
-              <CalendarIcon className="ml-2 h-4 w-4 text-gray-500" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="p-0 mt-2 rounded-xl shadow-xl">
-            <Calendar
-              mode="single"
-              selected={form.date ? new Date(form.date) : undefined}
-              onSelect={(d) => {
-                if (d) {
-                  setForm({ ...form, date: d.toISOString().slice(0, 10) })
-                  setCalendarOpen(false)
-                }
-              }}
-              className="rounded-xl"
-            />
-          </PopoverContent>
-        </Popover>
-        {errors.date && <p className="text-red-500 text-xs">필수 입력입니다.</p>}
+        {/* 배송일 선택 */}
+        <div className="w-[307px]">
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <button className="w-full h-[44px] rounded-lg border border-[#E0E0E0] px-4 flex items-center justify-between text-left text-base font-normal">
+                {form.date || '배송일 선택'}
+                <CalendarIcon className="h-4 w-4 text-gray-500" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="p-0 mt-2 rounded-xl shadow-xl">
+              <Calendar
+                mode="single"
+                selected={form.date ? new Date(form.date) : undefined}
+                onSelect={(d) => {
+                  if (d) {
+                    setForm({ ...form, date: d.toISOString().slice(0, 10) })
+                    setCalendarOpen(false)
+                  }
+                }}
+                className="rounded-xl"
+              />
+            </PopoverContent>
+          </Popover>
+          {errors.date && <p className="text-red-500 text-xs mt-1">필수 입력입니다.</p>}
+        </div>
 
-        {/* 쿠팡 ID */}
-        <Input
-          name="coupangId"
-          placeholder="쿠팡배송 어플에서 사용한 ID"
-          value={form.coupangId}
-          onChange={handleChange}
-        />
-        {errors.coupangId && <p className="text-red-500 text-xs">필수 입력입니다.</p>}
+        {/* 입력 필드들 */}
+        <div className="flex flex-col w-[307px] h-[77px] items-start gap-2">
+          <label className="text-sm font-medium text-gray-700">쿠팡배송 어플에서 사용한 ID</label>
+          <Input
+            name="coupangId"
+            placeholder="예: cp1234"
+            value={form.coupangId}
+            onChange={handleChange}
+            className={errors.coupangId ? 'border-red-500' : ''}
+          />
+          {errors.coupangId && <p className="text-xs text-red-500 mt-1">필수 입력입니다.</p>}
+        </div>
 
-        {/* 노선명 */}
-        <Input
-          name="route"
-          placeholder="노선명 (예: a301)"
-          value={form.route}
-          onChange={handleChange}
-        />
-        {errors.route && <p className="text-red-500 text-xs">필수 입력입니다.</p>}
+        <div className="flex flex-col w-[307px] h-[77px] items-start gap-2">
+          <label className="text-sm font-medium text-gray-700">노선명</label>
+          <Input
+            name="route"
+            placeholder="예: A301"
+            value={form.route}
+            onChange={handleChange}
+            className={errors.route ? 'border-red-500' : ''}
+          />
+          {errors.route && <p className="text-xs text-red-500 mt-1">필수 입력입니다.</p>}
+        </div>
 
-        {/* 배송/반품 건수 */}
-        <div className="flex gap-4 w-full">
+        <div className="flex w-[307px] gap-4">
           <Input
             name="deliveryCount"
             type="number"
@@ -172,32 +177,36 @@ export default function Tab0() {
           />
         </div>
 
-        {/* 주야 선택 */}
+        {/* 주야간 선택 */}
         <ToggleGroup
           type="single"
-          className="w-full border rounded-full justify-between"
           value={form.shift}
           onValueChange={(value) => setForm({ ...form, shift: value || '' })}
+          className="flex justify-center items-center w-[307px] h-[41px] px-2 py-1 rounded-full border border-[#E0E0E0] bg-white shadow-inner"
         >
           <ToggleGroupItem
             value="주간"
-            className={`w-1/2 rounded-full text-base font-medium py-2 ${form.shift === '주간' ? 'bg-blue-600 text-white' : ''}`}
+            className={`w-1/2 text-sm font-medium rounded-full h-full transition-all ${
+              form.shift === '주간' ? 'bg-blue-600 text-white' : 'text-gray-700'
+            }`}
           >
             주간
           </ToggleGroupItem>
           <ToggleGroupItem
             value="야간"
-            className={`w-1/2 rounded-full text-base font-medium py-2 ${form.shift === '야간' ? 'bg-blue-600 text-white' : ''}`}
+            className={`w-1/2 text-sm font-medium rounded-full h-full transition-all ${
+              form.shift === '야간' ? 'bg-blue-600 text-white' : 'text-gray-700'
+            }`}
           >
             야간
           </ToggleGroupItem>
         </ToggleGroup>
-        {errors.shift && <p className="text-red-500 text-xs">필수 입력입니다.</p>}
+        {errors.shift && <p className="text-red-500 text-xs mt-1">필수 입력입니다.</p>}
 
         {/* 저장 버튼 */}
         <Button
           onClick={handleSubmit}
-          className="bg-black hover:bg-neutral-800 text-white text-base font-semibold py-2.5 px-8 rounded-xl"
+          className="flex w-[85px] h-[41px] px-2 py-2 justify-center items-center gap-1 rounded-md border border-[#E0E0E0] bg-black text-white text-sm font-semibold shadow-[0_2px_2px_rgba(0,0,0,0.25)]"
         >
           저장하기
         </Button>
