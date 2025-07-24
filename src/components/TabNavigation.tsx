@@ -1,4 +1,4 @@
-// SidebarNavigation.tsx (왼쪽 고정형, 접고 펼치는 기능 포함)
+// MobileSidebarMenu.tsx — 모바일에서 왼쪽으로 슬라이드되는 입체감 있고 반투명한 메뉴
 'use client'
 
 import Link from 'next/link'
@@ -20,11 +20,11 @@ const tabs = [
   { label: '실적 검수', path: '/dashboard/tab10', role: 'admin' }
 ]
 
-export default function SidebarNavigation() {
+export default function MobileSidebarMenu() {
   const pathname = usePathname()
   const [activePath, setActivePath] = useState(pathname)
   const [role, setRole] = useState('')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
 
   useEffect(() => {
     setActivePath(pathname)
@@ -45,47 +45,35 @@ export default function SidebarNavigation() {
 
   return (
     <>
-      {/* 모바일 토글 버튼 */}
-      <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="fixed top-4 left-4 z-50 w-10 h-10 bg-[#D19C84] text-white rounded-full shadow-md flex items-center justify-center lg:hidden"
-      >
-        {sidebarOpen ? '←' : '→'}
-      </button>
+      {/* 왼쪽 상단 토글 버튼 */}
+      <div className="lg:hidden fixed top-4 left-4 z-50">
+        <button
+          onClick={() => setShowMobileMenu(!showMobileMenu)}
+          className="w-10 h-10 rounded-full bg-[#0088FF] text-white shadow-md flex items-center justify-center transition-transform duration-300 hover:scale-105"
+        >
+          ☰
+        </button>
+      </div>
 
-      {/* 사이드바 */}
+      {/* 왼쪽에서 슬라이드 인되는 메뉴 */}
       <div
-        className={`fixed top-0 left-0 h-screen w-[72px] bg-[#D19C84]/90 rounded-r-2xl shadow-lg flex flex-col items-center py-4 transition-all duration-300 z-40
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+        className={`fixed top-0 left-0 h-screen w-[240px] z-40 bg-white/80 backdrop-blur-xl rounded-r-2xl shadow-2xl transform transition-transform duration-300 ease-in-out
+          ${showMobileMenu ? 'translate-x-0' : '-translate-x-full'} lg:hidden`}
       >
-        {/* 아바타 */}
-        <div className="w-12 h-12 rounded-full bg-white overflow-hidden">
-          <img src="/avatar.png" alt="avatar" className="w-full h-full object-cover" />
-        </div>
-
-        {/* 탭 목록 */}
-        <div className="flex flex-col gap-4 mt-10 text-white text-xs font-semibold">
+        <div className="p-5 pt-10 flex flex-col gap-4">
           {visibleTabs.map(tab => (
             <Link
               key={tab.path}
               href={tab.path}
-              className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-200
+              onClick={() => setShowMobileMenu(false)}
+              className={`block px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
                 ${activePath === tab.path
-                  ? 'bg-white text-[#0088FF] shadow-md'
-                  : 'hover:bg-white/30'}
-              `}
-              title={tab.label}
+                  ? 'bg-[#0088FF] text-white shadow-md scale-[1.02]'
+                  : 'text-[#333] hover:bg-[#0088FF]/10'}`}
             >
-              <span className="truncate">{tab.label.slice(0, 2)}</span>
+              {tab.label}
             </Link>
           ))}
-        </div>
-
-        {/* 하단 + 버튼 */}
-        <div className="mt-auto">
-          <button className="bg-orange-500 w-10 h-10 rounded-xl text-white text-xl leading-none shadow-md">
-            +
-          </button>
         </div>
       </div>
     </>
