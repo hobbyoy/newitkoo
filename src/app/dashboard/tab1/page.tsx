@@ -165,7 +165,7 @@ export default function Tab1() {
               type="single"
               value={form.shift}
               onValueChange={(value) => setForm({ ...form, shift: value || '' })}
-              className="flex w-full border rounded-md overflow-hidden"
+             className="flex w-full border rounded-md shadow-sm overflow-hidden"
             >
               <ToggleGroupItem value="주간" className="flex-1 h-11 px-3 py-2 text-sm font-medium flex items-center justify-center data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">주간</ToggleGroupItem>
               <ToggleGroupItem value="야간" className="flex-1 h-11 px-3 py-2 text-sm font-medium flex items-center justify-center data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">야간</ToggleGroupItem>
