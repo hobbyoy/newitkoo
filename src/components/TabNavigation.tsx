@@ -1,4 +1,4 @@
-// src/components/TabNavigation.tsx (피그마 스타일 적용)
+// src/components/TabNavigation.tsx (피그마 스타일 적용, 아이콘 제거 + 슬림형 탭바)
 'use client'
 
 import Link from 'next/link'
@@ -6,11 +6,10 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { auth, db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
-import { Menu, Search } from 'lucide-react'
 
 const tabs = [
   { label: '실적 입력', path: '/dashboard/tab0', role: 'admin' },
-  { label: '실적(운영자) 입력', path: '/dashboard/tab1', role: 'admin' },
+  { label: '실적 입력(운)', path: '/dashboard/tab1', role: 'admin' },
   { label: '실적 리포트', path: '/dashboard/tab2', role: 'admin' },
   { label: '기사 정산', path: '/dashboard/tab3', role: 'admin' },
   { label: '수익 요약', path: '/dashboard/tab4', role: 'admin' },
@@ -45,19 +44,14 @@ export default function TabNavigation() {
 
   return (
     <div className="w-full px-4 py-2 bg-[#F5F5F5]">
-      <div className="max-w-[1024px] mx-auto flex items-center justify-between bg-white rounded-full shadow-md px-3 h-[48px] overflow-x-auto whitespace-nowrap">
-        {/* 왼쪽 아이콘 */}
-        <button className="min-w-[32px] text-gray-500">
-          <Menu size={20} />
-        </button>
-
+      <div className="max-w-[1024px] mx-auto flex items-center justify-center bg-white rounded-full shadow-md px-3 h-[40px] overflow-x-auto whitespace-nowrap">
         {/* 탭 목록 */}
         <div className="flex flex-1 justify-center gap-2 overflow-x-auto px-2">
           {visibleTabs.map(tab => (
             <Link
               key={tab.path}
               href={tab.path}
-              className={`px-4 py-1 rounded-full text-sm transition-all font-medium
+              className={`px-4 py-[6px] rounded-full text-[13px] transition-all font-medium min-w-max
                 ${activePath === tab.path
                   ? 'bg-white text-[#0088FF] font-semibold shadow-sm'
                   : 'text-gray-500 hover:text-black'}
@@ -67,11 +61,6 @@ export default function TabNavigation() {
             </Link>
           ))}
         </div>
-
-        {/* 오른쪽 아이콘 */}
-        <button className="min-w-[32px] text-gray-500">
-          <Search size={20} />
-        </button>
       </div>
     </div>
   )
