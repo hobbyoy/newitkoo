@@ -127,20 +127,27 @@ export default function Tab1() {
       <main className="max-w-md mx-auto py-10 px-4">
         <h1 className="text-xl font-semibold text-center text-[#0088FF] mb-6">📥 운영자 실적 입력</h1>
 
-        <div className="mb-4">
+        <div className="mb-4 relative">
           <label className="text-sm text-gray-700 font-medium mb-1 block">기사 선택</label>
-          <select
-            value={selectedUid}
-            onChange={(e) => setSelectedUid(e.target.value)}
-            className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0088FF]"
-          >
-            <option value="">기사 선택</option>
-            {driverList.map((driver) => (
-              <option key={driver.uid} value={driver.uid}>
-                {driver.email} / {driver.name}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={selectedUid}
+              onChange={(e) => setSelectedUid(e.target.value)}
+              className="w-full h-11 px-3 text-sm border rounded-md shadow-sm appearance-none font-semibold text-[#6C3BFF] bg-white"
+            >
+              <option value="">Pick an option</option>
+              {driverList.map((driver) => (
+                <option key={driver.uid} value={driver.uid} className="text-black">
+                  {driver.name} / {driver.email}
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[#6C3BFF]">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-4">
