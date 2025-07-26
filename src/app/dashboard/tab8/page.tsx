@@ -1,3 +1,4 @@
+// ✅ tab8 수정본: 이름 입력 후 해당 이메일 자동 선택 기능 포함
 'use client'
 
 import { useEffect, useState, ChangeEvent } from 'react'
@@ -7,6 +8,12 @@ import {
 } from 'firebase/firestore'
 import useRoleGuard from '@/hooks/useRoleGuard'
 import TabNavigation from '@/components/TabNavigation'
+
+interface User {
+  uid: string
+  name: string
+  email: string
+}
 
 interface RouteEntry {
   id: string
@@ -19,6 +26,7 @@ interface RouteEntry {
   startDate: string
   createdAt: Date
   driverName?: string
+  driverEmail?: string
 }
 
 export default function Tab8() {
@@ -28,6 +36,7 @@ export default function Tab8() {
     route: '',
     coupangId: '',
     driverName: '',
+    driverEmail: '',
     type: '고정' as '고정' | '백업',
     shift: '주간' as '주간' | '야간',
     driverUnitPrice: '',
@@ -36,6 +45,7 @@ export default function Tab8() {
   })
 
   const [routes, setRoutes] = useState<RouteEntry[]>([])
+  const [userList, setUserList] = useState<User[]>([])
   const [message, setMessage] = useState('')
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -45,11 +55,11 @@ export default function Tab8() {
 
   const handleSubmit = async () => {
     const {
-      route, coupangId, driverName, type, shift,
+      route, coupangId, driverName, driverEmail, type, shift,
       driverUnitPrice, coupangUnitPrice, startDate
     } = form
 
-    if (!route || !coupangId || !driverName || !driverUnitPrice || !startDate) {
+    if (!route || !coupangId || !driverName || !driverEmail || !driverUnitPrice || !startDate) {
       setMessage('❗ 모든 필수 항목을 입력해주세요.')
       return
     }
@@ -70,6 +80,7 @@ export default function Tab8() {
       route: route.trim(),
       coupangId: coupangId.trim(),
       driverName: driverName.trim(),
+      driverEmail: driverEmail.trim(),
       type,
       shift,
       driverUnitPrice: parsedDriverUnitPrice,
@@ -83,6 +94,7 @@ export default function Tab8() {
       route: '',
       coupangId: '',
       driverName: '',
+      driverEmail: '',
       type: '고정',
       shift: '주간',
       driverUnitPrice: '',
@@ -103,8 +115,19 @@ export default function Tab8() {
     setRoutes(list)
   }
 
+  const loadUsers = async () => {
+    const snap = await getDocs(collection(db, 'Users'))
+    const users = snap.docs.map(doc => doc.data() as User)
+    setUserList(users)
+  }
+
+  const filteredEmails = userList.filter(user =>
+    form.driverName && user.name.toLowerCase().includes(form.driverName.toLowerCase())
+  )
+
   useEffect(() => {
     loadRoutes()
+    loadUsers()
   }, [])
 
   return (
@@ -114,12 +137,17 @@ export default function Tab8() {
         <h1 className="text-xl font-bold mb-6 text-blue-700">⚙️ 기사 노선 단가 등록 (tab8)</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-6 rounded-lg border border-gray-300 mb-8">
-          <input name="driverName" placeholder="기사 이름" value={form.driverName} onChange={handleChange}
-            className="border p-2 rounded" />
-          <input name="route" placeholder="노선명 (예: A01)" value={form.route} onChange={handleChange}
-            className="border p-2 rounded" />
-          <input name="coupangId" placeholder="쿠팡ID" value={form.coupangId} onChange={handleChange}
-            className="border p-2 rounded" />
+          <input name="driverName" placeholder="기사 이름" value={form.driverName} onChange={handleChange} className="border p-2 rounded" />
+
+          <select name="driverEmail" value={form.driverEmail} onChange={handleChange} className="border p-2 rounded">
+            <option value="">이메일 선택</option>
+            {filteredEmails.map(user => (
+              <option key={user.uid} value={user.email}>{user.email}</option>
+            ))}
+          </select>
+
+          <input name="route" placeholder="노선명 (예: A01)" value={form.route} onChange={handleChange} className="border p-2 rounded" />
+          <input name="coupangId" placeholder="쿠팡ID" value={form.coupangId} onChange={handleChange} className="border p-2 rounded" />
           <select name="type" value={form.type} onChange={handleChange} className="border p-2 rounded">
             <option value="고정">고정</option>
             <option value="백업">백업</option>
@@ -128,12 +156,9 @@ export default function Tab8() {
             <option value="주간">주간</option>
             <option value="야간">야간</option>
           </select>
-          <input name="driverUnitPrice" placeholder="기사 단가 (원)" type="number" value={form.driverUnitPrice} onChange={handleChange}
-            className="border p-2 rounded" />
-          <input name="coupangUnitPrice" placeholder="쿠팡 단가 (선택)" type="number" value={form.coupangUnitPrice} onChange={handleChange}
-            className="border p-2 rounded" />
-          <input name="startDate" type="date" value={form.startDate} onChange={handleChange}
-            className="border p-2 rounded" />
+          <input name="driverUnitPrice" placeholder="기사 단가 (원)" type="number" value={form.driverUnitPrice} onChange={handleChange} className="border p-2 rounded" />
+          <input name="coupangUnitPrice" placeholder="쿠팡 단가 (선택)" type="number" value={form.coupangUnitPrice} onChange={handleChange} className="border p-2 rounded" />
+          <input name="startDate" type="date" value={form.startDate} onChange={handleChange} className="border p-2 rounded" />
           <button onClick={handleSubmit} className="col-span-1 md:col-span-2 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
             등록하기
           </button>
@@ -146,6 +171,7 @@ export default function Tab8() {
           <thead className="bg-gray-100 text-center">
             <tr>
               <th className="border p-2">기사</th>
+              <th className="border p-2">이메일</th>
               <th className="border p-2">노선</th>
               <th className="border p-2">쿠팡ID</th>
               <th className="border p-2">유형</th>
@@ -160,20 +186,13 @@ export default function Tab8() {
             {routes.map((r) => (
               <tr key={r.id} className="text-center">
                 <td className="border p-1">{r.driverName || '-'}</td>
+                <td className="border p-1">{r.driverEmail || '-'}</td>
                 <td className="border p-1">{r.route}</td>
                 <td className="border p-1">{r.coupangId}</td>
                 <td className="border p-1">{r.type}</td>
                 <td className="border p-1">{r.shift}</td>
-                <td className="border p-1">
-                  {typeof r.driverUnitPrice === 'number' && !isNaN(r.driverUnitPrice)
-                    ? r.driverUnitPrice.toLocaleString()
-                    : '-'}
-                </td>
-                <td className="border p-1">
-                  {typeof r.coupangUnitPrice === 'number' && !isNaN(r.coupangUnitPrice)
-                    ? r.coupangUnitPrice.toLocaleString()
-                    : '-'}
-                </td>
+                <td className="border p-1">{typeof r.driverUnitPrice === 'number' && !isNaN(r.driverUnitPrice) ? r.driverUnitPrice.toLocaleString() : '-'}</td>
+                <td className="border p-1">{typeof r.coupangUnitPrice === 'number' && !isNaN(r.coupangUnitPrice) ? r.coupangUnitPrice.toLocaleString() : '-'}</td>
                 <td className="border p-1">{r.startDate || '-'}</td>
                 <td className="border p-1">
                   <button onClick={() => handleDelete(r.id)} className="text-red-600 hover:underline">삭제</button>
