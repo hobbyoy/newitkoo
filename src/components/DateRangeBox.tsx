@@ -40,7 +40,7 @@ export default function DateRangeBox({ onChange }: Props) {
     w-full h-[44px] px-4
     bg-white
     border border-neutral-100
-    text-neutral-100
+    text-black
     font-button-medium text-[var(--button-medium-font-size)]
     shadow-500
     rounded-md text-left

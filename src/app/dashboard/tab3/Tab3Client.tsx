@@ -205,7 +205,7 @@ const Tab3Client = () => {
       "
       disabled={!summary.length}
     >
-      <option value="" className="text-neutral-500 italic">
+      <option value="" className="text-black italic">
         {summary.length ? '기사 선택' : '먼저 날짜를 선택하세요'}
       </option>
       {driverList.map(d => (
