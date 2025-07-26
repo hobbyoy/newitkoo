@@ -27,6 +27,7 @@ export default function Tab8() {
   const [form, setForm] = useState({
     route: '',
     coupangId: '',
+    driverName: '',
     type: '고정' as '고정' | '백업',
     shift: '주간' as '주간' | '야간',
     driverUnitPrice: '',
@@ -43,22 +44,15 @@ export default function Tab8() {
   }
 
   const handleSubmit = async () => {
-    const { route, coupangId, type, shift, driverUnitPrice, coupangUnitPrice, startDate } = form
+    const {
+      route, coupangId, driverName, type, shift,
+      driverUnitPrice, coupangUnitPrice, startDate
+    } = form
 
-    if (!route || !coupangId || !driverUnitPrice || !startDate) {
+    if (!route || !coupangId || !driverName || !driverUnitPrice || !startDate) {
       setMessage('❗ 모든 필수 항목을 입력해주세요.')
       return
     }
-
-    // 🔍 기사 이름 조회
-    let driverName = ''
-    const userSnap = await getDocs(collection(db, 'Users'))
-    userSnap.forEach(doc => {
-      const data = doc.data()
-      if (data.itkooId?.toLowerCase() === coupangId.toLowerCase()) {
-        driverName = data.name
-      }
-    })
 
     const routeKey = `${route.toLowerCase()}_${coupangId.toLowerCase()}`.toUpperCase()
     const docRef = doc(db, 'Routes', routeKey)
@@ -67,17 +61,26 @@ export default function Tab8() {
       id: routeKey,
       route: route.trim(),
       coupangId: coupangId.trim(),
+      driverName: driverName.trim(), // ✅ 이름 저장
       type,
       shift,
       driverUnitPrice: Number(driverUnitPrice),
       coupangUnitPrice: coupangUnitPrice ? Number(coupangUnitPrice) : 0,
       startDate,
-      createdAt: new Date(),
-      driverName, // ✅ 이름 저장
+      createdAt: new Date()
     })
 
     setMessage('✅ 등록 완료')
-    setForm({ route: '', coupangId: '', type: '고정', shift: '주간', driverUnitPrice: '', coupangUnitPrice: '', startDate: '' })
+    setForm({
+      route: '',
+      coupangId: '',
+      driverName: '',
+      type: '고정',
+      shift: '주간',
+      driverUnitPrice: '',
+      coupangUnitPrice: '',
+      startDate: ''
+    })
     loadRoutes()
   }
 
@@ -103,6 +106,8 @@ export default function Tab8() {
         <h1 className="text-xl font-bold mb-6 text-blue-700">⚙️ 기사 노선 단가 등록 (tab8)</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-6 rounded-lg border border-gray-300 mb-8">
+          <input name="driverName" placeholder="기사 이름" value={form.driverName} onChange={handleChange}
+            className="border p-2 rounded" />
           <input name="route" placeholder="노선명 (예: A01)" value={form.route} onChange={handleChange}
             className="border p-2 rounded" />
           <input name="coupangId" placeholder="쿠팡ID" value={form.coupangId} onChange={handleChange}
@@ -132,6 +137,7 @@ export default function Tab8() {
         <table className="w-full text-sm border rounded">
           <thead className="bg-gray-100 text-center">
             <tr>
+              <th className="border p-2">기사</th>
               <th className="border p-2">노선</th>
               <th className="border p-2">쿠팡ID</th>
               <th className="border p-2">유형</th>
@@ -145,6 +151,7 @@ export default function Tab8() {
           <tbody>
             {routes.map((r) => (
               <tr key={r.id} className="text-center">
+                <td className="border p-1">{r.driverName || '-'}</td>
                 <td className="border p-1">{r.route}</td>
                 <td className="border p-1">{r.coupangId}</td>
                 <td className="border p-1">{r.type}</td>
