@@ -18,6 +18,7 @@ interface RouteEntry {
   coupangUnitPrice: number
   startDate: string
   createdAt: Date
+  driverName?: string
 }
 
 export default function Tab8() {
@@ -49,6 +50,16 @@ export default function Tab8() {
       return
     }
 
+    // 🔍 기사 이름 조회
+    let driverName = ''
+    const userSnap = await getDocs(collection(db, 'Users'))
+    userSnap.forEach(doc => {
+      const data = doc.data()
+      if (data.itkooId?.toLowerCase() === coupangId.toLowerCase()) {
+        driverName = data.name
+      }
+    })
+
     const routeKey = `${route.toLowerCase()}_${coupangId.toLowerCase()}`.toUpperCase()
     const docRef = doc(db, 'Routes', routeKey)
 
@@ -61,7 +72,8 @@ export default function Tab8() {
       driverUnitPrice: Number(driverUnitPrice),
       coupangUnitPrice: coupangUnitPrice ? Number(coupangUnitPrice) : 0,
       startDate,
-      createdAt: new Date()
+      createdAt: new Date(),
+      driverName, // ✅ 이름 저장
     })
 
     setMessage('✅ 등록 완료')
