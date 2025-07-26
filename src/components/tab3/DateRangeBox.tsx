@@ -46,7 +46,7 @@ export default function DateRangeBox({ onChange }: Props) {
 
       {/* 달력 */}
       {showCalendar && (
-        <div className="absolute z-10 mt-2 transition-all duration-300 ease-in-out">
+        <div className="absolute z-10 mt-2 w-[350px] transition-all duration-300 ease-in-out">
         <CustomCalendar onChange={handleChange} />
         </div>
       )}

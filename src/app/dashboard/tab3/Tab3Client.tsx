@@ -175,25 +175,24 @@ const Tab3Client = () => {
         <h1 className="text-[12px] font-semibold text-black mb-4">기사별 실지급 정산</h1>
 
         {/* 날짜 & 기사 선택 */}
-        <div className="flex gap-4 mb-6 items-end">
-        {/* 🔁 기존 기간 버튼 → 피그마 디자인으로 교체 */}
-        <div className="flex flex-col gap-1">
-      
-        <DateRangeBox
-         onChange={(start, end) => {
-          setStartDate(start)
-         setEndDate(end)
-         }}
-  />
-        </div>
+  <div className="flex flex-col items-center justify-center gap-4 mb-6">
+  <div className="w-[350px]">
+    <DateRangeBox
+      onChange={(start, end) => {
+        setStartDate(start)
+        setEndDate(end)
+      }}
+    />
+  </div>
 
-       {/* 기사 선택 */}
-  <DriverSelectBox
-    value={selectedUid}
-    onChange={(uid) => setSelectedUid(uid)}
-    options={driverList}
-    disabled={!summary.length}
-  />
+  <div className="w-[350px]">
+    <DriverSelectBox
+      value={selectedUid}
+      onChange={(uid) => setSelectedUid(uid)}
+      options={driverList}
+      disabled={!summary.length}
+    />
+  </div>
 </div>
 
         {/* 달력 */}
@@ -206,9 +205,9 @@ const Tab3Client = () => {
           const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
 
           return (
-            <div className="bg-white rounded-[20px] shadow-md p-6 flex flex-col gap-6">
-              {/* 기사 정보 */}
-              <div>
+           <div className="flex justify-center">
+          <div className="bg-white rounded-[20px] shadow-md p-6 flex flex-col gap-6 w-full max-w-[700px]">
+
                 <h2 className="text-[20px] font-bold text-black mb-1">{selectedDriver.name}</h2>
                 <p className="text-[12px] text-gray-500">{selectedDriver.email}</p>
                 <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">
