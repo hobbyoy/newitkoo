@@ -167,7 +167,7 @@ const Tab3Client = () => {
   }, [startDate, endDate])
 
   return (
-    <div className="bg-[#FAFAFA] min-h-screen">
+    <div className="bg-[#ffffff] min-h-screen">
       <TabNavigation />
       <main className="max-w-[1024px] mx-auto py-8 px-4">
         <h1 className="text-[16px] font-semibold text-black mb-4">기사별 실지급 정산</h1>
