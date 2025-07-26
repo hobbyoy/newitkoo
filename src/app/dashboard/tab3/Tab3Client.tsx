@@ -16,7 +16,7 @@ import {
 import useRoleGuard from '@/hooks/useRoleGuard'
 import TabNavigation from '@/components/TabNavigation'
 import notoVfs from '@/lib/fonts/noto-vfs'
-import { DateRange } from 'react-date-range'
+import { DateRange, RangeKeyDict } from 'react-date-range'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import 'react-date-range/dist/styles.css'
@@ -65,32 +65,50 @@ interface Deductions {
   freshback: number
 }
 
+interface PdfMakeInstance {
+  createPdf: (docDef: object) => {
+    download: (filename?: string) => void
+  }
+  vfs?: Record<string, string>
+  fonts?: unknown
+}
+
+interface DateRangeSelection {
+  startDate: Date
+  endDate: Date
+  key: 'selection'
+}
+
 const Tab3Client = () => {
   useRoleGuard('admin')
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [range, setRange] = useState([{ startDate: new Date(), endDate: new Date(), key: 'selection' }])
+  const [range, setRange] = useState<DateRangeSelection[]>([{
+    startDate: new Date(),
+    endDate: new Date(),
+    key: 'selection'
+  }])
   const [showPicker, setShowPicker] = useState(false)
   const [driverList, setDriverList] = useState<Driver[]>([])
   const [summary, setSummary] = useState<Summary[]>([])
   const [selectedUid, setSelectedUid] = useState('')
   const [deductions, setDeductions] = useState<Record<string, Partial<Deductions>>>({})
-  const pdfMakeRef = useRef<any>(null)
+  const pdfMakeRef = useRef<PdfMakeInstance | null>(null)
 
   const handleDeductionChange = (
-  field: keyof Deductions,
-  value: string
-): void => {
-  if (!selectedUid) return
-  setDeductions(prev => ({
-    ...prev,
-    [selectedUid]: {
-      ...prev[selectedUid],
-      [field]: Number(value) || 0
-    }
-  }))
-}
+    field: keyof Deductions,
+    value: string
+  ): void => {
+    if (!selectedUid) return
+    setDeductions(prev => ({
+      ...prev,
+      [selectedUid]: {
+        ...prev[selectedUid],
+        [field]: Number(value) || 0
+      }
+    }))
+  }
 
   const selectedDriver = useMemo(() => summary.find(d => d.uid === selectedUid), [summary, selectedUid])
 
@@ -208,7 +226,10 @@ const Tab3Client = () => {
             <DateRange
               locale={ko}
               editableDateInputs={true}
-              onChange={(item) => setRange([item.selection as any])}
+              onChange={(item: RangeKeyDict) => {
+                const selected = item.selection
+                if (selected) setRange([selected as DateRangeSelection])
+              }}
               moveRangeOnFirstSelection={false}
               ranges={range}
               rangeColors={['#0088FF']}
@@ -216,6 +237,7 @@ const Tab3Client = () => {
             />
           </div>
         )}
+
         {/* 선택된 기사 UI 카드 */}
         {selectedDriver && (() => {
           const d = deductions[selectedDriver.uid] || {}
