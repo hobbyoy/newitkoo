@@ -188,17 +188,33 @@ const Tab3Client = () => {
         {/* ⏹ 이건 그대로 둬 */}
         <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-gray-700">기사 선택</label>
-        <select
-      value={selectedUid}
-      onChange={(e) => setSelectedUid(e.target.value)}
-      className="h-11 w-64 border border-gray-300 rounded-md px-4 text-sm"
-      disabled={!summary.length}
-       >
-        <option value="">{summary.length ? '기사 선택' : '먼저 날짜를 선택하세요'}</option>
-        {driverList.map(d => (
-        <option key={d.uid} value={d.uid}>{d.name} ({d.email})</option>
-      ))}
-    </select>
+        <div className="relative z-10">
+  <select
+    value={selectedUid}
+    onChange={(e) => setSelectedUid(e.target.value)}
+    className="
+      h-[44px] w-[256px] px-4 rounded-md border border-neutral-50
+      shadow-500 bg-white text-neutral-100
+      font-tablet-caption text-[var(--tablet-caption-font-size)]
+      appearance-none
+    "
+    disabled={!summary.length}
+  >
+    <option value="" className="text-neutral-500">
+      {summary.length ? '기사 선택' : '먼저 날짜를 선택하세요'}
+    </option>
+    {driverList.map(d => (
+      <option
+        key={d.uid}
+        value={d.uid}
+        className="text-neutral-100 bg-white"
+      >
+        {d.name} ({d.email})
+      </option>
+    ))}
+  </select>
+</div>
+
   </div>
 </div>
 
