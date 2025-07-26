@@ -16,11 +16,8 @@ import {
 import useRoleGuard from '@/hooks/useRoleGuard'
 import TabNavigation from '@/components/TabNavigation'
 import notoVfs from '@/lib/fonts/noto-vfs'
-import { DateRange, RangeKeyDict } from 'react-date-range'
-import { format } from 'date-fns'
-import { ko } from 'date-fns/locale'
-import 'react-date-range/dist/styles.css'
-import 'react-date-range/dist/theme/default.css'
+import DateRangeBox from '@/components/DateRangeBox'
+
 
 interface Driver {
   uid: string
@@ -73,23 +70,11 @@ interface PdfMakeInstance {
   fonts?: unknown
 }
 
-interface DateRangeSelection {
-  startDate: Date
-  endDate: Date
-  key: 'selection'
-}
-
 const Tab3Client = () => {
   useRoleGuard('admin')
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [range, setRange] = useState<DateRangeSelection[]>([{
-    startDate: new Date(),
-    endDate: new Date(),
-    key: 'selection'
-  }])
-  const [showPicker, setShowPicker] = useState(false)
   const [driverList, setDriverList] = useState<Driver[]>([])
   const [summary, setSummary] = useState<Summary[]>([])
   const [selectedUid, setSelectedUid] = useState('')
@@ -138,11 +123,6 @@ const Tab3Client = () => {
     }
     loadDrivers()
   }, [])
-
-  useEffect(() => {
-    setStartDate(format(range[0].startDate, 'yyyy-MM-dd'))
-    setEndDate(format(range[0].endDate, 'yyyy-MM-dd'))
-  }, [range])
 
   useEffect(() => {
     if (!startDate || !endDate) return
@@ -194,49 +174,35 @@ const Tab3Client = () => {
 
         {/* 날짜 & 기사 선택 */}
         <div className="flex gap-4 mb-6 items-end">
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">정산 기간</label>
-            <button
-              onClick={() => setShowPicker(!showPicker)}
-              className="h-11 border border-gray-300 rounded-md bg-white px-4 text-left text-sm"
-            >
-              {`${format(range[0].startDate, 'yyyy.MM.dd')} ~ ${format(range[0].endDate, 'yyyy.MM.dd')}`}
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">기사 선택</label>
-            <select
-              value={selectedUid}
-              onChange={(e) => setSelectedUid(e.target.value)}
-              className="h-11 w-64 border border-gray-300 rounded-md px-4 text-sm"
-              disabled={!summary.length}
-            >
-              <option value="">{summary.length ? '기사 선택' : '먼저 날짜를 선택하세요'}</option>
-              {driverList.map(d => (
-                <option key={d.uid} value={d.uid}>{d.name} ({d.email})</option>
-              ))}
-            </select>
-          </div>
+        {/* 🔁 기존 기간 버튼 → 피그마 디자인으로 교체 */}
+        <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-gray-700">정산 기간</label>
+        <DateRangeBox
+         onChange={(start, end) => {
+          setStartDate(start)
+         setEndDate(end)
+         }}
+  />
         </div>
 
+        {/* ⏹ 이건 그대로 둬 */}
+        <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-gray-700">기사 선택</label>
+        <select
+      value={selectedUid}
+      onChange={(e) => setSelectedUid(e.target.value)}
+      className="h-11 w-64 border border-gray-300 rounded-md px-4 text-sm"
+      disabled={!summary.length}
+       >
+        <option value="">{summary.length ? '기사 선택' : '먼저 날짜를 선택하세요'}</option>
+        {driverList.map(d => (
+        <option key={d.uid} value={d.uid}>{d.name} ({d.email})</option>
+      ))}
+    </select>
+  </div>
+</div>
+
         {/* 달력 */}
-        {showPicker && (
-          <div className="relative z-10 mb-6">
-            <DateRange
-              locale={ko}
-              editableDateInputs={true}
-              onChange={(item: RangeKeyDict) => {
-                const selected = item.selection
-                if (selected) setRange([selected as DateRangeSelection])
-              }}
-              moveRangeOnFirstSelection={false}
-              ranges={range}
-              rangeColors={['#0088FF']}
-              maxDate={new Date()}
-            />
-          </div>
-        )}
 
         {/* 선택된 기사 UI 카드 */}
         {selectedDriver && (() => {
