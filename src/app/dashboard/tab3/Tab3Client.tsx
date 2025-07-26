@@ -172,13 +172,13 @@ const Tab3Client = () => {
     <div className="bg-[#ffffff] min-h-screen">
       <TabNavigation />
       <main className="max-w-[1024px] mx-auto py-8 px-4">
-        <h1 className="text-[16px] font-semibold text-black mb-4">기사별 실지급 정산</h1>
+        <h1 className="text-[12px] font-semibold text-black mb-4">기사별 실지급 정산</h1>
 
         {/* 날짜 & 기사 선택 */}
         <div className="flex gap-4 mb-6 items-end">
         {/* 🔁 기존 기간 버튼 → 피그마 디자인으로 교체 */}
         <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-black">정산 기간</label>
+      
         <DateRangeBox
          onChange={(start, end) => {
           setStartDate(start)
