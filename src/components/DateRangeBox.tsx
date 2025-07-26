@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { DateRange } from 'react-date-range'
+import { DateRange, Range, RangeKeyDict } from 'react-date-range'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import 'react-date-range/dist/styles.css'
@@ -13,28 +13,30 @@ interface Props {
 
 export default function DateRangeBox({ onChange }: Props) {
   const [showCalendar, setShowCalendar] = useState(false)
-  const [range, setRange] = useState([{
+  const [range, setRange] = useState<Range[]>([{
     startDate: new Date(),
     endDate: new Date(),
-    key: 'selection' as const,
+    key: 'selection',
   }])
 
-  const handleSelect = (ranges: any) => {
+  const handleSelect = (ranges: RangeKeyDict) => {
     const selected = ranges.selection
-    setRange([selected])
-    const start = format(selected.startDate, 'yyyy-MM-dd')
-    const end = format(selected.endDate, 'yyyy-MM-dd')
-    onChange?.(start, end)
+    if (selected && selected.startDate && selected.endDate) {
+      setRange([selected])
+      const start = format(selected.startDate, 'yyyy-MM-dd')
+      const end = format(selected.endDate, 'yyyy-MM-dd')
+      onChange?.(start, end)
+    }
   }
 
   return (
     <div className="relative w-[240px]">
-      {/* 날짜 범위 버튼 */}
+      {/* 날짜 선택 버튼 */}
       <button
         onClick={() => setShowCalendar(!showCalendar)}
         className="w-full h-[44px] px-4 border border-gray-300 rounded-md text-left text-sm bg-white"
       >
-        {`${format(range[0].startDate, 'yyyy.MM.dd')} ~ ${format(range[0].endDate, 'yyyy.MM.dd')}`}
+        {`${format(range[0].startDate!, 'yyyy.MM.dd')} ~ ${format(range[0].endDate!, 'yyyy.MM.dd')}`}
       </button>
 
       {/* 달력 */}
