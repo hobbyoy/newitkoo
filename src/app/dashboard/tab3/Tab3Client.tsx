@@ -175,7 +175,7 @@ const Tab3Client = () => {
         <h1 className="text-[12px] font-semibold text-black mb-4">기사별 실지급 정산</h1>
 
         {/* 날짜 & 기사 선택 */}
-  <div className="flex flex-col items-center justify-center gap-4 mb-6">
+  <div className="flex flex-row items-center justify-center gap-4 mb-6">
   <div className="w-[350px]">
     <DateRangeBox
       onChange={(start, end) => {
