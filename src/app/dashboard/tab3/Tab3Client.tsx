@@ -193,9 +193,20 @@ const Tab3Client = () => {
       disabled={!summary.length}
     />
   </div>
-</div>
+  </div>
 
-        {/* 달력 */}
+  {selectedDriver && (
+    <>
+  <h2 className="text-[20px] font-bold text-black mb-1">{selectedDriver.name}</h2>
+                <p className="text-[12px] text-gray-500">{selectedDriver.email}</p>
+                <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">
+                  노선: {Array.from(selectedDriver.routes).join(', ')}<br />
+                  쿠팡ID: {Array.from(selectedDriver.ids).join(', ')}<br />
+                  배송: {selectedDriver.totalDelivery}건 / 반품: {selectedDriver.totalReturn}건 / 총 {selectedDriver.totalCount}건<br />
+                  기사수익: {selectedDriver.driverIncome.toLocaleString()}원
+                </p>
+</>
+  )}
 
         {/* 선택된 기사 UI 카드 */}
         {selectedDriver && (() => {
@@ -208,14 +219,7 @@ const Tab3Client = () => {
            <div className="flex justify-center">
           <div className="bg-white rounded-[20px] shadow-md p-6 flex flex-row lg:flex-row gap-6 w-full max-w-[700px]">
 
-                <h2 className="text-[20px] font-bold text-black mb-1">{selectedDriver.name}</h2>
-                <p className="text-[12px] text-gray-500">{selectedDriver.email}</p>
-                <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">
-                  노선: {Array.from(selectedDriver.routes).join(', ')}<br />
-                  쿠팡ID: {Array.from(selectedDriver.ids).join(', ')}<br />
-                  배송: {selectedDriver.totalDelivery}건 / 반품: {selectedDriver.totalReturn}건 / 총 {selectedDriver.totalCount}건<br />
-                  기사수익: {selectedDriver.driverIncome.toLocaleString()}원
-                </p>
+                
               </div>
 
               {/* 공제 카드 */}
