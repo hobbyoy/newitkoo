@@ -39,7 +39,7 @@ export default function DateRangeBox({ onChange }: Props) {
   className="
     w-full h-[44px] px-4
     bg-white
-    border border-neutral-100
+    border border-neutral-500
     text-black
     font-button-medium text-[var(--button-medium-font-size)]
     shadow-500
@@ -48,7 +48,7 @@ export default function DateRangeBox({ onChange }: Props) {
     flex items-center gap-2
   "
 >
-  <CalendarDaysIcon className="w-5 h-5 text-neutral-100" />
+  <CalendarDaysIcon className="w-5 h-5 text-black" />
   {`${format(range[0].startDate!, 'yyyy.MM.dd')} ~ ${format(range[0].endDate!, 'yyyy.MM.dd')}`}
 </button>
 
