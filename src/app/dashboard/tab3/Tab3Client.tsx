@@ -206,7 +206,7 @@ const Tab3Client = () => {
 
           return (
            <div className="flex justify-center">
-          <div className="bg-white rounded-[20px] shadow-md p-6 flex flex-col gap-6 w-full max-w-[700px]">
+          <div className="bg-white rounded-[20px] shadow-md p-6 flex flex-row lg:flex-row gap-6 w-full max-w-[700px]">
 
                 <h2 className="text-[20px] font-bold text-black mb-1">{selectedDriver.name}</h2>
                 <p className="text-[12px] text-gray-500">{selectedDriver.email}</p>
@@ -242,6 +242,7 @@ const Tab3Client = () => {
                   ))}
                 </div>
               </div>
+
 
               {/* 프레시백 카드 */}
               <div className="bg-gradient-to-b from-[#58AFFF] to-[#007BFF] rounded-[20px] p-5 text-white">
