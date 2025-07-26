@@ -1,4 +1,3 @@
-// components/tab3/DriverFeeBox.tsx
 'use client'
 
 interface Deductions {
@@ -16,59 +15,28 @@ interface Props {
 
 export default function DriverFeeBox({ deductions, onChange }: Props) {
   return (
-    <div className="bg-gradient-to-b from-[#FF5858] to-[#FF0000] rounded-[20px] p-5 text-white">
-      <h3 className="text-[16px] font-semibold text-center mb-4">기사부담 비용 입력</h3>
-      <div className="grid gap-3">
-        <div className="flex justify-between items-center">
-          <span className="text-sm w-24">고용보험</span>
-          <input
-            type="number"
-            placeholder="0"
-            value={deductions.empDeduct ?? ''}
-            onChange={(e) => onChange('empDeduct', e.target.value)}
-            className="bg-white text-black px-3 py-2 rounded w-40 text-right"
-          />
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm w-24">산재보험</span>
-          <input
-            type="number"
-            placeholder="0"
-            value={deductions.indDeduct ?? ''}
-            onChange={(e) => onChange('indDeduct', e.target.value)}
-            className="bg-white text-black px-3 py-2 rounded w-40 text-right"
-          />
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm w-24">운송지원비</span>
-          <input
-            type="number"
-            placeholder="0"
-            value={deductions.rentalDeduct ?? ''}
-            onChange={(e) => onChange('rentalDeduct', e.target.value)}
-            className="bg-white text-black px-3 py-2 rounded w-40 text-right"
-          />
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm w-24">파손/분실</span>
-          <input
-            type="number"
-            placeholder="0"
-            value={deductions.damageDeduct ?? ''}
-            onChange={(e) => onChange('damageDeduct', e.target.value)}
-            className="bg-white text-black px-3 py-2 rounded w-40 text-right"
-          />
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm w-24">기타 공제</span>
-          <input
-            type="number"
-            placeholder="0"
-            value={deductions.etcDeduct ?? ''}
-            onChange={(e) => onChange('etcDeduct', e.target.value)}
-            className="bg-white text-black px-3 py-2 rounded w-40 text-right"
-          />
-        </div>
+    <div className="w-[351px] h-[275px] rounded-[20px] shadow-lg bg-gradient-to-br from-[#f87171] via-[#ef4444] to-[#b91c1c] text-white p-5 flex flex-col justify-between">
+      <h3 className="text-center text-[16px] font-semibold">기사부담 비용 입력</h3>
+
+      <div className="flex flex-col gap-2 text-sm">
+        {[
+          ['고용보험', 'empDeduct'],
+          ['산재보험', 'indDeduct'],
+          ['운송지원비', 'rentalDeduct'],
+          ['파손/분실', 'damageDeduct'],
+          ['기타 공제', 'etcDeduct']
+        ].map(([label, key]) => (
+          <div key={key} className="flex justify-between items-center">
+            <span>{label}</span>
+            <input
+              type="number"
+              placeholder="0"
+              value={deductions[key as keyof Deductions] ?? ''}
+              onChange={(e) => onChange(key as keyof Deductions, e.target.value)}
+              className="w-[120px] px-2 py-1 rounded text-black text-right"
+            />
+          </div>
+        ))}
       </div>
     </div>
   )
