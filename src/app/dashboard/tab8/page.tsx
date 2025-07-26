@@ -54,6 +54,14 @@ export default function Tab8() {
       return
     }
 
+    const parsedDriverUnitPrice = Number(driverUnitPrice)
+    const parsedCoupangUnitPrice = Number(coupangUnitPrice)
+
+    if (isNaN(parsedDriverUnitPrice)) {
+      setMessage('❗ 기사 단가는 숫자로 입력해주세요.')
+      return
+    }
+
     const routeKey = `${route.toLowerCase()}_${coupangId.toLowerCase()}`.toUpperCase()
     const docRef = doc(db, 'Routes', routeKey)
 
@@ -61,11 +69,11 @@ export default function Tab8() {
       id: routeKey,
       route: route.trim(),
       coupangId: coupangId.trim(),
-      driverName: driverName.trim(), // ✅ 이름 저장
+      driverName: driverName.trim(),
       type,
       shift,
-      driverUnitPrice: Number(driverUnitPrice),
-      coupangUnitPrice: coupangUnitPrice ? Number(coupangUnitPrice) : 0,
+      driverUnitPrice: parsedDriverUnitPrice,
+      coupangUnitPrice: isNaN(parsedCoupangUnitPrice) ? 0 : parsedCoupangUnitPrice,
       startDate,
       createdAt: new Date()
     })
@@ -156,9 +164,17 @@ export default function Tab8() {
                 <td className="border p-1">{r.coupangId}</td>
                 <td className="border p-1">{r.type}</td>
                 <td className="border p-1">{r.shift}</td>
-                <td className="border p-1">{r.driverUnitPrice.toLocaleString()}</td>
-                <td className="border p-1">{r.coupangUnitPrice?.toLocaleString()}</td>
-                <td className="border p-1">{r.startDate}</td>
+                <td className="border p-1">
+                  {typeof r.driverUnitPrice === 'number' && !isNaN(r.driverUnitPrice)
+                    ? r.driverUnitPrice.toLocaleString()
+                    : '-'}
+                </td>
+                <td className="border p-1">
+                  {typeof r.coupangUnitPrice === 'number' && !isNaN(r.coupangUnitPrice)
+                    ? r.coupangUnitPrice.toLocaleString()
+                    : '-'}
+                </td>
+                <td className="border p-1">{r.startDate || '-'}</td>
                 <td className="border p-1">
                   <button onClick={() => handleDelete(r.id)} className="text-red-600 hover:underline">삭제</button>
                 </td>
