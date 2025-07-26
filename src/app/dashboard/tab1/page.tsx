@@ -1,4 +1,4 @@
-// ✅ tab1 전체 코드 - 기사 실적을 DailyRecords에 저장하는 구조로 수정
+// ✅ tab1 전체 코드 - 기사 실적을 DailyRecords에 저장하는 구조 + 기사 노선 정보 표시
 'use client'
 
 import { useState, useEffect, ChangeEvent } from 'react'
@@ -16,12 +16,22 @@ interface Driver {
   name: string
 }
 
+interface RouteEntry {
+  id: string
+  route: string
+  coupangId: string
+  type: '고정' | '백업'
+  shift: '주간' | '야간'
+  driverEmail: string
+}
+
 export default function Tab1() {
   useRoleGuard('admin')
 
   const [driverList, setDriverList] = useState<Driver[]>([])
   const [selectedUid, setSelectedUid] = useState('')
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [routes, setRoutes] = useState<RouteEntry[]>([])
 
   const [form, setForm] = useState({
     date: '',
@@ -35,6 +45,7 @@ export default function Tab1() {
   const [message, setMessage] = useState('')
 
   const selectedDriver = driverList.find((d) => d.uid === selectedUid)
+  const filteredRoutes = selectedDriver ? routes.filter(r => r.driverEmail === selectedDriver.email) : []
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -108,8 +119,15 @@ export default function Tab1() {
     setDriverList(drivers)
   }
 
+  const fetchRoutes = async () => {
+    const snap = await getDocs(collection(db, 'Routes'))
+    const list = snap.docs.map(doc => doc.data() as RouteEntry)
+    setRoutes(list)
+  }
+
   useEffect(() => {
     fetchDrivers()
+    fetchRoutes()
   }, [])
 
   return (
@@ -151,6 +169,33 @@ export default function Tab1() {
             </ul>
           )}
         </div>
+
+        {/* 해당 기사 노선 목록 테이블 */}
+        {selectedDriver && filteredRoutes.length > 0 && (
+          <div className="mb-6 border p-4 rounded bg-white shadow-sm">
+            <h2 className="text-sm font-semibold text-[#0088FF] mb-2">📋 해당 기사 노선 정보</h2>
+            <table className="w-full text-sm border rounded">
+              <thead className="bg-gray-100 text-center">
+                <tr>
+                  <th className="border p-2">노선명</th>
+                  <th className="border p-2">쿠팡ID</th>
+                  <th className="border p-2">유형</th>
+                  <th className="border p-2">주/야</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRoutes.map((r, i) => (
+                  <tr key={i} className="text-center">
+                    <td className="border p-1">{r.route}</td>
+                    <td className="border p-1">{r.coupangId}</td>
+                    <td className="border p-1">{r.type}</td>
+                    <td className="border p-1">{r.shift}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* 입력 폼 */}
         <div className="space-y-4">
