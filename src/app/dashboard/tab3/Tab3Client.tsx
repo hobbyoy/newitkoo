@@ -193,7 +193,7 @@ const Tab3Client = () => {
     value={selectedUid}
     onChange={(e) => setSelectedUid(e.target.value)}
     className="
-      h-[44px] w-[256px] px-4 rounded-md border border-neutral-50
+      h-[44px] w-[256px] px-4 rounded-md border border-neutral-100
       shadow-500 bg-white text-neutral-100
       font-tablet-caption text-[var(--tablet-caption-font-size)]
       appearance-none
