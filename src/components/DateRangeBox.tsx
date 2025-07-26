@@ -34,14 +34,27 @@ export default function DateRangeBox({ onChange }: Props) {
       {/* 날짜 선택 버튼 */}
       <button
         onClick={() => setShowCalendar(!showCalendar)}
-        className="w-full h-[44px] px-4 border border-gray-300 rounded-md text-left text-sm bg-white"
+        className="
+          w-full
+          h-[44px]
+          px-4
+          bg-primary-500
+          text-white
+          rounded-md
+          font-button-medium
+          text-[var(--button-medium-font-size)]
+          shadow-500
+          hover:opacity-90
+          transition
+          text-left
+        "
       >
         {`${format(range[0].startDate!, 'yyyy.MM.dd')} ~ ${format(range[0].endDate!, 'yyyy.MM.dd')}`}
       </button>
 
       {/* 달력 */}
       {showCalendar && (
-        <div className="absolute z-10 mt-2 shadow-lg">
+        <div className="absolute z-10 mt-2 shadow-500 bg-white rounded-md p-2">
           <DateRange
             editableDateInputs
             locale={ko}
@@ -54,5 +67,5 @@ export default function DateRangeBox({ onChange }: Props) {
         </div>
       )}
     </div>
-  )
+  );
 }
