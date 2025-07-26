@@ -11,7 +11,15 @@ export default function Datepicker({ placeholder = '날짜지정' }: DatepickerP
     <input
       type="date"
       placeholder={placeholder}
-      className="w-[240px] h-[48px] px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      className="
+        w-[240px] h-[48px] px-4 py-2
+        bg-white
+        border border-neutral-100
+        rounded-md shadow-500
+        text-neutral-100
+        font-tablet-caption text-[var(--tablet-caption-font-size)]
+        focus:outline-none focus:ring-2 focus:ring-primary-500
+      "
     />
   )
 }
