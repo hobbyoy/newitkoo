@@ -47,7 +47,7 @@ export default function DriverSelectBox({
       {/* 옵션 목록 */}
       {open && (
         <div
-          className="absolute top-[70px] left-0 z-20 w-full bg-white border border-neutral-500 rounded-md shadow-500"
+          className="absolute top-full mt-2 left-0 z-20 w-full bg-white border border-neutral-500 rounded-md shadow-500"
         >
           {options.map((d) => (
             <div
@@ -56,7 +56,7 @@ export default function DriverSelectBox({
                 onChange(d.uid)
                 setOpen(false)
               }}
-              className="px-4 py-2 hover:bg-neutral-50 text-black text-sm cursor-pointer"
+              className="px-4 py-2 hover:bg-neutral-500 text-black text-sm cursor-pointer"
             >
               {d.name} ({d.email})
             </div>
