@@ -1,4 +1,4 @@
-// ✅ tab1 전체 코드 - 기사 이름 포함 저장 + 드롭다운/토글 크기 맞춤
+// ✅ tab1 전체 코드 - 기사 실적을 DailyRecords에 저장하는 구조로 수정
 'use client'
 
 import { useState, useEffect, ChangeEvent } from 'react'
@@ -16,19 +16,11 @@ interface Driver {
   name: string
 }
 
-interface Route {
-  route: string
-  coupangId: string
-  shift: string
-  driverName: string
-}
-
 export default function Tab1() {
   useRoleGuard('admin')
 
   const [driverList, setDriverList] = useState<Driver[]>([])
   const [selectedUid, setSelectedUid] = useState('')
-  const [allRoutes, setAllRoutes] = useState<Route[]>([])
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const [form, setForm] = useState({
@@ -60,24 +52,41 @@ export default function Tab1() {
       return
     }
 
+    const key = `${selectedUid}|${date}|${coupangId.toLowerCase()}|${route.toLowerCase()}`
+    const docRef = doc(db, 'DailyRecords', key)
+    const exists = await getDoc(docRef)
+    if (exists.exists()) {
+      alert('⚠️ 이미 입력된 실적입니다.')
+      return
+    }
+
     const routeKey = `${route.toLowerCase()}_${coupangId.toLowerCase()}`.toUpperCase()
-    const docRef = doc(db, 'Routes', routeKey)
-    const routeCheck = await getDoc(docRef)
-    if (routeCheck.exists()) {
-      alert('⚠️ 동일한 노선이 이미 존재합니다.')
+    const routeCheck = await getDoc(doc(db, 'Routes', routeKey))
+    if (!routeCheck.exists()) {
+      alert(`❌ 등록되지 않은 노선입니다.\n\n노선: ${route} / 쿠팡ID: ${coupangId}`)
       return
     }
 
     try {
+      const delivery = Number(deliveryCount || 0)
+      const returns = Number(returnCount || 0)
+      const total = delivery + returns
+
       await setDoc(docRef, {
-        route: route.toLowerCase(),
+        uid: selectedUid,
+        email: selectedDriver.email,
+        name: selectedDriver.name,
+        deliveryDate: date,
         coupangId: coupangId.toLowerCase(),
+        route: route.toLowerCase(),
         shift,
-        driverName: selectedDriver.name,
+        deliveryCount: delivery,
+        returnCount: returns,
+        totalCount: total,
         createdAt: serverTimestamp(),
       })
 
-      setMessage('✅ 노선 정보가 저장되었습니다.')
+      setMessage('✅ 실적이 성공적으로 저장되었습니다.')
       setForm({
         date: '',
         coupangId: '',
@@ -88,10 +97,8 @@ export default function Tab1() {
       })
       setSelectedUid('')
     } catch (err) {
-      if (err instanceof Error) {
-        console.error(err)
-        setMessage(`❌ 저장 실패: ${err.message}`)
-      }
+      console.error(err)
+      setMessage('❌ 저장 실패')
     }
   }
 
@@ -101,15 +108,8 @@ export default function Tab1() {
     setDriverList(drivers)
   }
 
-  const fetchRoutes = async () => {
-    const snap = await getDocs(collection(db, 'Routes'))
-    const routes = snap.docs.map(doc => doc.data() as Route)
-    setAllRoutes(routes)
-  }
-
   useEffect(() => {
     fetchDrivers()
-    fetchRoutes()
   }, [])
 
   return (
@@ -121,7 +121,6 @@ export default function Tab1() {
 
         {/* 기사 선택 드롭다운 */}
         <div className="mb-4 relative">
-          
           <button
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -159,18 +158,15 @@ export default function Tab1() {
           <input name="coupangId" type="text" value={form.coupangId} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" placeholder="쿠팡 ID" />
           <input name="route" type="text" value={form.route} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" placeholder="노선명" />
 
-          <div>
-            
-            <ToggleGroup
-              type="single"
-              value={form.shift}
-              onValueChange={(value) => setForm({ ...form, shift: value || '' })}
-             className="flex w-full border rounded-md shadow-sm overflow-hidden"
-            >
-              <ToggleGroupItem value="주간" className="flex-1 h-11 px-3 py-2 text-sm font-medium flex items-center justify-center data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">주간</ToggleGroupItem>
-              <ToggleGroupItem value="야간" className="flex-1 h-11 px-3 py-2 text-sm font-medium flex items-center justify-center data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">야간</ToggleGroupItem>
-            </ToggleGroup>
-          </div>
+          <ToggleGroup
+            type="single"
+            value={form.shift}
+            onValueChange={(value) => setForm({ ...form, shift: value || '' })}
+            className="flex w-full border rounded-md shadow-sm overflow-hidden"
+          >
+            <ToggleGroupItem value="주간" className="flex-1 h-11 px-3 py-2 text-sm font-medium flex items-center justify-center data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">주간</ToggleGroupItem>
+            <ToggleGroupItem value="야간" className="flex-1 h-11 px-3 py-2 text-sm font-medium flex items-center justify-center data-[state=on]:bg-[#0088FF] data-[state=on]:text-white">야간</ToggleGroupItem>
+          </ToggleGroup>
 
           <input name="deliveryCount" type="number" value={form.deliveryCount} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" placeholder="배송 건수" />
           <input name="returnCount" type="number" value={form.returnCount} onChange={handleChange} className="w-full h-11 px-3 py-2 text-sm border rounded-md shadow-sm" placeholder="반품 건수" />
@@ -184,40 +180,6 @@ export default function Tab1() {
         </button>
 
         {message && <p className="text-green-600 text-sm font-semibold text-center whitespace-pre-wrap mt-4">{message}</p>}
-
-        {/* 등록된 노선 테이블 */}
-        {allRoutes.length > 0 && (
-          <div className="mt-10 bg-white/50 backdrop-blur-md shadow-inner border border-gray-200 rounded-xl p-4">
-            <h2 className="text-sm font-semibold text-[#0088FF] mb-4">📋 등록된 기사 노선 정보</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-gray-700 rounded-lg">
-                <thead>
-                  <tr className="bg-white/40 backdrop-blur-md text-left text-[#0088FF] font-semibold tracking-wide">
-                    <th className="px-4 py-3">기사</th>
-                    <th className="px-4 py-3">노선명</th>
-                    <th className="px-4 py-3">쿠팡ID</th>
-                    <th className="px-4 py-3">주/야</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allRoutes.map((r, i) => (
-                    <tr
-                      key={i}
-                      className={`${
-                        i % 2 === 0 ? 'bg-white/60' : 'bg-white/30'
-                      } hover:bg-white/70 transition`}
-                    >
-                      <td className="px-4 py-3 font-medium">{r.driverName}</td>
-                      <td className="px-4 py-3 font-medium">{r.route}</td>
-                      <td className="px-4 py-3">{r.coupangId}</td>
-                      <td className="px-4 py-3">{r.shift}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   )
