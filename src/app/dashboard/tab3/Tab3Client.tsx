@@ -176,7 +176,7 @@ const Tab3Client = () => {
         <div className="flex gap-4 mb-6 items-end">
         {/* 🔁 기존 기간 버튼 → 피그마 디자인으로 교체 */}
         <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-gray-700">정산 기간</label>
+        <label className="text-sm font-medium text-black">정산 기간</label>
         <DateRangeBox
          onChange={(start, end) => {
           setStartDate(start)
@@ -187,35 +187,41 @@ const Tab3Client = () => {
 
         {/* ⏹ 이건 그대로 둬 */}
         <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-gray-700">기사 선택</label>
-        <div className="relative z-10">
-  <select
-    value={selectedUid}
-    onChange={(e) => setSelectedUid(e.target.value)}
-    className="
-      h-[44px] w-[256px] px-4 rounded-md border border-neutral-100
-      shadow-500 bg-white text-neutral-100
-      font-tablet-caption text-[var(--tablet-caption-font-size)]
-      appearance-none
-    "
-    disabled={!summary.length}
-  >
-    <option value="" className="text-neutral-500">
-      {summary.length ? '기사 선택' : '먼저 날짜를 선택하세요'}
-    </option>
-    {driverList.map(d => (
-      <option
-        key={d.uid}
-        value={d.uid}
-        className="text-neutral-100 bg-white"
-      >
-        {d.name} ({d.email})
+  <label className="text-sm font-medium text-black">기사 선택</label>
+
+  <div className="relative z-10 w-[256px]">
+    <select
+      value={selectedUid}
+      onChange={(e) => setSelectedUid(e.target.value)}
+      className="
+        h-[44px] w-full px-4 pr-10
+        bg-white
+        border border-neutral-100
+        text-neutral-100
+        rounded-md
+        shadow-500
+        font-tablet-caption text-[var(--tablet-caption-font-size)]
+        appearance-none
+      "
+      disabled={!summary.length}
+    >
+      <option value="" className="text-neutral-500 italic">
+        {summary.length ? '기사 선택' : '먼저 날짜를 선택하세요'}
       </option>
-    ))}
-  </select>
+      {driverList.map(d => (
+        <option key={d.uid} value={d.uid} className="text-black bg-white">
+          {d.name} ({d.email})
+        </option>
+      ))}
+    </select>
+
+    {/* ▼ 아이콘 */}
+    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400">
+      ▼
+    </div>
+  </div>
 </div>
 
-  </div>
 </div>
 
         {/* 달력 */}

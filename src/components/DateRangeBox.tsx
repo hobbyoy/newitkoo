@@ -6,6 +6,8 @@ import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import 'react-date-range/dist/styles.css'
 import 'react-date-range/dist/theme/default.css'
+import { CalendarDaysIcon } from '@heroicons/react/24/outline'
+
 
 interface Props {
   onChange?: (start: string, end: string) => void
@@ -33,24 +35,22 @@ export default function DateRangeBox({ onChange }: Props) {
     <div className="relative w-[240px]">
       {/* 날짜 선택 버튼 */}
       <button
-        onClick={() => setShowCalendar(!showCalendar)}
-        className="
-          w-full
-          h-[44px]
-          px-4
-          bg-primary-500
-          text-white
-          rounded-md
-          font-button-medium
-          text-[var(--button-medium-font-size)]
-          shadow-500
-          hover:opacity-90
-          transition
-          text-left
-        "
-      >
-        {`${format(range[0].startDate!, 'yyyy.MM.dd')} ~ ${format(range[0].endDate!, 'yyyy.MM.dd')}`}
-      </button>
+  onClick={() => setShowCalendar(!showCalendar)}
+  className="
+    w-full h-[44px] px-4
+    bg-white
+    border border-neutral-100
+    text-neutral-100
+    font-button-medium text-[var(--button-medium-font-size)]
+    shadow-500
+    rounded-md text-left
+    hover:opacity-90 transition
+    flex items-center gap-2
+  "
+>
+  <CalendarDaysIcon className="w-5 h-5 text-neutral-100" />
+  {`${format(range[0].startDate!, 'yyyy.MM.dd')} ~ ${format(range[0].endDate!, 'yyyy.MM.dd')}`}
+</button>
 
       {/* 달력 */}
       {showCalendar && (
