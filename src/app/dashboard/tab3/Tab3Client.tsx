@@ -19,7 +19,7 @@ import notoVfs from '@/lib/fonts/noto-vfs'
 import DateRangeBox from '@/components/tab3/DateRangeBox'
 import Datepicker from '@/components/tab3/Datepicker'
 import DriverSelectBox from '@/components/tab3/DriverSelectBox'
-
+import DriverFeeBox from '@/components/tab3/DriverFeeBox'
 
 interface Driver {
   uid: string
@@ -223,29 +223,10 @@ const Tab3Client = () => {
               </div>
 
               {/* 공제 카드 */}
-              <div className="bg-gradient-to-b from-[#FF5858] to-[#FF0000] rounded-[20px] p-5 text-white">
-                <h3 className="text-[16px] font-semibold text-center mb-4">기사부담 비용 입력</h3>
-                <div className="grid gap-3">
-                  {[
-                    ['고용보험', 'empDeduct'],
-                    ['산재보험', 'indDeduct'],
-                    ['운송지원비', 'rentalDeduct'],
-                    ['파손/분실', 'damageDeduct'],
-                    ['기타 공제', 'etcDeduct']
-                  ].map(([label, key]) => (
-                    <div key={key} className="flex justify-between items-center">
-                      <span className="text-sm w-24">{label}</span>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        value={d[key as keyof Deductions] ?? ''}
-                        onChange={(e) => handleDeductionChange(key as keyof Deductions, e.target.value)}
-                        className="bg-white text-black px-3 py-2 rounded w-40 text-right"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <DriverFeeBox
+              deductions={deductions[selectedDriver.uid] || {}}
+              onChange={(field, value) => handleDeductionChange(field, value)}
+              />
 
 
               {/* 프레시백 카드 */}
