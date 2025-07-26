@@ -15,8 +15,8 @@ interface Props {
 
 export default function DriverFeeBox({ deductions, onChange }: Props) {
   return (
-    <div className="w-[351px] h-[275px] rounded-[20px] shadow-lg bg-gradient-to-br from-[#f87171] via-[#ef4444] to-[#b91c1c] text-white p-5 flex flex-col justify-between">
-      <h3 className="text-center text-[16px] font-semibold">기사부담 비용 입력</h3>
+    <div className="w-[350px] h-[275px] rounded-[20px] shadow-lg bg-gradient-to-br from-[#f87171] via-[#ef4444] to-[#b91c1c] text-white p-5 flex flex-col justify-between">
+      <h3 className="text-center text-[24px] font-semibold text-black">기사부담 비용 입력</h3>
 
       <div className="flex flex-col gap-2 text-sm">
         {[

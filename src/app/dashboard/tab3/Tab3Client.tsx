@@ -197,18 +197,26 @@ const Tab3Client = () => {
 
   {selectedDriver && (
     <>
-  <h2 className="text-[20px] font-bold text-black mb-1">{selectedDriver.name}</h2>
-                <p className="text-[12px] text-gray-500">{selectedDriver.email}</p>
-                <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">
+  <h2 className="text-[36px] font-bold text-black mb-1">{selectedDriver.name}</h2>
+                <p className="text-[16px] text-black">{selectedDriver.email}</p>
+                <p className="text-[12px] text-black mt-1 leading-relaxed">
                   노선: {Array.from(selectedDriver.routes).join(', ')}<br />
                   쿠팡ID: {Array.from(selectedDriver.ids).join(', ')}<br />
                   배송: {selectedDriver.totalDelivery}건 / 반품: {selectedDriver.totalReturn}건 / 총 {selectedDriver.totalCount}건<br />
                   기사수익: {selectedDriver.driverIncome.toLocaleString()}원
                 </p>
-</>
-  )}
 
-        {/* 선택된 기사 UI 카드 */}
+                {/* 공제 카드 */}
+              <DriverFeeBox
+              deductions={deductions[selectedDriver.uid] || {}}
+              onChange={(field, value) => handleDeductionChange(field, value)}
+              />
+</>
+
+  )}
+  
+
+        {/* 하얀색카드 */}
         {selectedDriver && (() => {
           const d = deductions[selectedDriver.uid] || {}
           const totalDeduct = (d.empDeduct || 0) + (d.indDeduct || 0) + (d.rentalDeduct || 0) + (d.damageDeduct || 0) + (d.etcDeduct || 0)
@@ -221,12 +229,6 @@ const Tab3Client = () => {
 
                 
               </div>
-
-              {/* 공제 카드 */}
-              <DriverFeeBox
-              deductions={deductions[selectedDriver.uid] || {}}
-              onChange={(field, value) => handleDeductionChange(field, value)}
-              />
 
 
               {/* 프레시백 카드 */}
