@@ -56,6 +56,7 @@ export default function CustomCalendar({ onChange }: Props) {
               onClick={() => handleDateClick(day)}
               className={`
                 h-10 flex items-center justify-center rounded-full cursor-pointer
+                text-sm transition font-medium
                 ${isStart || isEnd ? 'bg-[#2280EF] text-white font-bold' : ''}
                 ${inRange ? 'bg-[#DFF0FD] text-[#2280EF]' : ''}
                 ${isOutside ? 'text-[#BBBBBB]' : 'text-[#141414]'}
