@@ -2,6 +2,7 @@
 
 import React from 'react'
 
+
 interface DatepickerProps {
   placeholder?: string
 }
@@ -12,7 +13,7 @@ export default function Datepicker({ placeholder = '날짜지정' }: DatepickerP
       type="date"
       placeholder={placeholder}
       className="
-        w-[240px] h-[48px] px-4 py-2
+        w-[350px] h-[48px] px-4 py-2
         bg-white
         border border-neutral-100
         rounded-md shadow-500

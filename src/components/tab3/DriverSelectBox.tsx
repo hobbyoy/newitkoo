@@ -27,7 +27,7 @@ export default function DriverSelectBox({
   const selected = options.find((d) => d.uid === value)
 
   return (
-    <div className="flex flex-col gap-1 w-[256px] relative">
+    <div className="flex flex-col gap-1 w-[350px] relative">
       {/* 버튼 */}
       <div
         onClick={() => !disabled && setOpen(!open)}

@@ -22,7 +22,7 @@ export default function DateRangeBox({ onChange }: Props) {
   }
 
   return (
-    <div className="relative w-[240px]">
+    <div className="relative w-[350px]">
       {/* 날짜 선택 버튼 */}
       <button
         onClick={() => setShowCalendar(!showCalendar)}
