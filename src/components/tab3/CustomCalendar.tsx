@@ -72,13 +72,13 @@ export default function CustomCalendar({ onChange }: Props) {
   }
 
   return (
-    <div className="w-[348px] h-auto bg-white rounded-3xl shadow-500 p-4">
+    <div className="w-[240px] h-auto bg-white rounded-2xl shadow-500 border border-neutral-500 p-4">
       {/* 상단 월 + 이동 버튼 */}
       <div className="flex items-center justify-between mb-2">
         <button onClick={() => setCurrentMonth(addMonths(currentMonth, -1))}>
           <ChevronLeftIcon className="w-5 h-5 text-neutral-500" />
         </button>
-        <div className="text-[16px] font-tablet-subtitles-subtitle-1 text-neutral-50">
+        <div className="text-[16px] font-tablet-subtitles-subtitle-1 text-neutral-500">
           {format(currentMonth, 'MMMM yyyy', { locale: ko })}
         </div>
         <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
