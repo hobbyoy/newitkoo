@@ -154,29 +154,30 @@ const Tab3Client = () => {
                 />
               </div>
 
-              {/* 🔵 기사 추가 수익 */}
-              {(() => {
-                const d = deductions[selectedDriver.uid] || {}
-                return (
-                  <div className="w-[360px] mx-auto">
-                    <div className="rounded-2xl p-5 text-white bg-gradient-to-b from-[#58AFFF] to-[#2D91FF] shadow-md">
-                      <h3 className="text-[16px] font-semibold text-center mb-4">기사 추가 수익</h3>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm">기사 프레시백 수익</span>
-                        <input
-                          type="number" inputMode="numeric" min={0} step={1000}
-                          placeholder="기사 프레시백 수익"
-                          value={(d.freshback ?? '').toString()}
-                          onChange={(e) => handleDeductionChange('freshback', e.target.value)}
-                          className="bg-white text-black w-40 h-11 px-3 rounded-md border border-neutral-300
-                                     text-[14px] text-right placeholder:text-neutral-400
-                                     focus:outline-none focus:ring-2 focus:ring-white/50"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )
-              })()}
+{/* 🔵 기사 추가 수익 (프레시백) — 라벨 없이 placeholder로 안내, 입력창 44px/14px */}
+{(() => {
+  const d = deductions[selectedDriver.uid] || {}
+  return (
+    <div className="w-[360px] mx-auto">
+      <div className="rounded-2xl p-5 text-white bg-gradient-to-b from-[#58AFFF] to-[#2D91FF] shadow-md">
+        <h3 className="text-[16px] font-semibold text-center mb-4">기사 추가 수익</h3>
+        <input
+          aria-label="기사 프레시백 수익"
+          type="number"
+          inputMode="numeric"
+          min={0}
+          step={1000}
+          placeholder="기사 프레시백 수익"
+          value={(d.freshback ?? '').toString()}
+          onChange={(e) => handleDeductionChange('freshback', e.target.value)}
+          className="w-full h-11 px-4 rounded-lg border border-neutral-300 shadow-sm
+                     bg-white text-black text-[14px] text-right placeholder:text-neutral-400
+                     focus:outline-none focus:ring-2 focus:ring-white/50"
+        />
+      </div>
+    </div>
+  )
+})()}
             </div>
           </section>
         ) : (
