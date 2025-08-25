@@ -227,108 +227,113 @@ const Tab3Client = () => {
               </div>
             </div>
 
-            {/* 오른쪽: 입력 카드 (기사부담 + 프레시백 + 합계 + 버튼) */}
-            <div className="bg-white rounded-2xl shadow-md p-6 space-y-6">
-              {/* 기사부담 입력 (350 기준 중앙 배치) */}
-              <div className="max-w-[350px] w-full mx-auto">
-                <DriverFeeBox
-                  deductions={deductions[selectedDriver.uid] || {}}
-                  onChange={(field, value) => handleDeductionChange(field, value)}
-                />
-              </div>
+  {/* 오른쪽: 입력 카드 (기사부담 + 프레시백 + 합계 + 버튼) */}
+<div className="bg-white rounded-2xl shadow-md p-6 space-y-6">
+  {/* 기사부담 입력 */}
+  <div className="w-[350px] mx-auto">
+    <DriverFeeBox
+      deductions={deductions[selectedDriver.uid] || {}}
+      onChange={(field, value) => handleDeductionChange(field, value)}
+    />
+  </div>
 
-              {/* 프레시백 */}
-              {(() => {
-                const d = deductions[selectedDriver.uid] || {}
-                return (
-                  <div className="rounded-2xl p-5 text-white bg-gradient-to-b from-[#58AFFF] to-[#007BFF]">
-                    <h3 className="text-[16px] font-semibold text-center mb-4">기사 추가 수익</h3>
-                    <div className="flex items-center justify-between gap-3">
-                      <label className="text-sm">프레시백 수익</label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={1000}
-                        placeholder="0"
-                        value={(d.freshback ?? '').toString()}
-                        onChange={(e) => handleDeductionChange('freshback', e.target.value)}
-                        className="bg-white text-black px-3 py-2 rounded w-40 text-right"
-                      />
-                    </div>
-                  </div>
-                )
-              })()}
+  {/* 프레시백 */}
+  {(() => {
+    const d = deductions[selectedDriver.uid] || {}
+    return (
+      <div className="w-[350px] mx-auto">
+        <div className="rounded-2xl p-5 text-white bg-gradient-to-b from-[#58AFFF] to-[#007BFF]">
+          <h3 className="text-[16px] font-semibold text-center mb-4">기사 추가 수익</h3>
+          <div className="flex items-center justify-between gap-3">
+            <label className="text-sm">프레시백 수익</label>
+            <input
+              type="number"
+              min={0}
+              step={1000}
+              placeholder="0"
+              value={(d.freshback ?? '').toString()}
+              onChange={(e) => handleDeductionChange('freshback', e.target.value)}
+              className="bg-white text-black px-3 py-2 rounded w-40 text-right"
+            />
+          </div>
+        </div>
+      </div>
+    )
+  })()}
 
-              {/* 최종 실지급액 */}
-              {(() => {
-                const d = deductions[selectedDriver.uid] || {}
-                const totalDeduct =
-                  (d.empDeduct || 0) + (d.indDeduct || 0) + (d.rentalDeduct || 0) + (d.damageDeduct || 0) + (d.etcDeduct || 0)
-                const freshback = d.freshback || 0
-                const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
+  {/* 최종 실지급액 */}
+  {(() => {
+    const d = deductions[selectedDriver.uid] || {}
+    const totalDeduct =
+      (d.empDeduct || 0) + (d.indDeduct || 0) + (d.rentalDeduct || 0) + (d.damageDeduct || 0) + (d.etcDeduct || 0)
+    const freshback = d.freshback || 0
+    const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
 
-                return (
-                  <div className="border-t border-black/10 pt-6 flex items-center justify-between">
-                    <span className="text-[16px] font-medium">최종 기사 실지급액</span>
-                    <span className="text-[24px] font-bold">{finalPay.toLocaleString()}원</span>
-                  </div>
-                )
-              })()}
+    return (
+      <div className="w-[350px] mx-auto">
+        <div className="border-t border-black/10 pt-6 flex items-center justify-between">
+          <span className="text-[16px] font-medium">최종 기사 실지급액</span>
+          <span className="text-[24px] font-bold">{finalPay.toLocaleString()}원</span>
+        </div>
+      </div>
+    )
+  })()}
 
-              {/* 버튼 */}
-              <div className="flex justify-center gap-3">
-                <button
-                  onClick={() =>
-                    pdfMakeRef.current?.createPdf({
-                      content: [{ text: `${selectedDriver.name} 실지급 정산`, style: 'h' }],
-                      styles: { h: { fontSize: 16, bold: true } },
-                      defaultStyle: { font: 'NotoSans' },
-                    }).download(`${selectedDriver.name}_${startDate}_${endDate}.pdf`)
-                  }
-                  className="bg-black text-white px-5 py-2 rounded hover:opacity-90 text-sm"
-                >
-                  📄 PDF 저장
-                </button>
+  {/* 버튼 */}
+  <div className="w-[350px] mx-auto">
+    <div className="flex justify-center gap-3">
+      <button
+        onClick={() =>
+          pdfMakeRef.current?.createPdf({
+            content: [{ text: `${selectedDriver.name} 실지급 정산`, style: 'h' }],
+            styles: { h: { fontSize: 16, bold: true } },
+            defaultStyle: { font: 'NotoSans' },
+          }).download(`${selectedDriver.name}_${startDate}_${endDate}.pdf`)
+        }
+        className="bg-black text-white px-5 py-2 rounded hover:opacity-90 text-sm"
+      >
+        📄 PDF 저장
+      </button>
 
-                <button
-                  onClick={async () => {
-                    const d = deductions[selectedDriver.uid] || {}
-                    const totalDeduct =
-                      (d.empDeduct || 0) + (d.indDeduct || 0) + (d.rentalDeduct || 0) + (d.damageDeduct || 0) + (d.etcDeduct || 0)
-                    const freshback = d.freshback || 0
-                    const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
+      <button
+        onClick={async () => {
+          const d = deductions[selectedDriver.uid] || {}
+          const totalDeduct =
+            (d.empDeduct || 0) + (d.indDeduct || 0) + (d.rentalDeduct || 0) + (d.damageDeduct || 0) + (d.etcDeduct || 0)
+          const freshback = d.freshback || 0
+          const finalPay = selectedDriver.driverIncome - totalDeduct + freshback
 
-                    const docRef = doc(db, 'FinalPayouts', `${selectedDriver.uid}_${startDate}_${endDate}`)
-                    const exists = await getDoc(docRef)
-                    if (exists.exists()) return alert('⚠️ 이미 저장된 정산 데이터입니다.')
+          const docRef = doc(db, 'FinalPayouts', `${selectedDriver.uid}_${startDate}_${endDate}`)
+          const exists = await getDoc(docRef)
+          if (exists.exists()) return alert('⚠️ 이미 저장된 정산 데이터입니다.')
 
-                    await setDoc(docRef, {
-                      uid: selectedDriver.uid,
-                      email: selectedDriver.email,
-                      name: selectedDriver.name,
-                      startDate,
-                      endDate,
-                      totalDelivery: selectedDriver.totalDelivery,
-                      totalReturn: selectedDriver.totalReturn,
-                      totalCount: selectedDriver.totalCount,
-                      driverIncome: selectedDriver.driverIncome,
-                      totalFee: selectedDriver.totalFee,
-                      itkooFee: selectedDriver.totalFee,
-                      ids: Array.from(selectedDriver.ids),
-                      routes: Array.from(selectedDriver.routes),
-                      totalDeduction: totalDeduct,
-                      freshback,
-                      finalPay,
-                      createdAt: new Date(), // 다음 단계에서 serverTimestamp() 권장
-                    })
-                    alert('✅ 저장 완료')
-                  }}
-                  className="bg-black text-white px-5 py-2 rounded hover:opacity-90 text-sm"
-                >
-                  💾 저장하기
-                </button>
-              </div>
-            </div>
+          await setDoc(docRef, {
+            uid: selectedDriver.uid,
+            email: selectedDriver.email,
+            name: selectedDriver.name,
+            startDate, endDate,
+            totalDelivery: selectedDriver.totalDelivery,
+            totalReturn: selectedDriver.totalReturn,
+            totalCount: selectedDriver.totalCount,
+            driverIncome: selectedDriver.driverIncome,
+            totalFee: selectedDriver.totalFee,
+            itkooFee: selectedDriver.totalFee,
+            ids: Array.from(selectedDriver.ids),
+            routes: Array.from(selectedDriver.routes),
+            totalDeduction: totalDeduct,
+            freshback,
+            finalPay,
+            createdAt: new Date(), // 다음 단계에서 serverTimestamp() 권장
+          })
+          alert('✅ 저장 완료')
+        }}
+        className="bg-black text-white px-5 py-2 rounded hover:opacity-90 text-sm"
+      >
+        💾 저장하기
+      </button>
+    </div>
+  </div>
+</div>
           </section>
         ) : (
           <div className="mx-auto w-full max-w-[720px] bg-white rounded-2xl shadow p-10 text-center text-gray-500">
