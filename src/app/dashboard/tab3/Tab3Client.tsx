@@ -206,13 +206,7 @@ const Tab3Client = () => {
                   기사수익: {selectedDriver.driverIncome.toLocaleString()}원
                 </p>
 
-                {/* 공제 카드 */}
-              <DriverFeeBox
-              deductions={deductions[selectedDriver.uid] || {}}
-              onChange={(field, value) => handleDeductionChange(field, value)}
-              />
 </>
-
   )}
   
 
@@ -320,4 +314,8 @@ const Tab3Client = () => {
     기간과 기사를 선택하면 정산 카드가 표시됩니다.
   </div>
 )}
-
+      </main>
+    </div>
+  )
+}
+export default Tab3Client
