@@ -114,15 +114,27 @@ const Tab3Client = () => {
     <div className="bg-white min-h-screen">
       <TabNavigation />
       <main className="max-w-[1024px] mx-auto py-8 px-4">
+
+ {/* 제목: 중앙 한 줄 */}
+<h1 className="text-[12px] font-semibold text-black text-center mb-6">
+  기사별 실지급 정산
+</h1>
+
+{/* 날짜/기사 선택: 같은 줄, 정확히 수평 정렬 */}
 <section className="grid grid-cols-1 lg:[grid-template-columns:360px_360px] lg:justify-center gap-4 lg:gap-8 mb-10">
-  <div className="w-[360px] flex flex-col gap-2">
-    <h1 className="text-[12px] font-semibold text-black">기사별 실지급 정산</h1>
+  <div className="w-[360px]">
     <DateRangeBox onChange={(s, e) => { setStartDate(s); setEndDate(e) }} />
   </div>
   <div className="w-[360px]">
-    <DriverSelectBox value={selectedUid} onChange={setSelectedUid} options={driverList} disabled={!summary.length} />
+    <DriverSelectBox
+      value={selectedUid}
+      onChange={setSelectedUid}
+      options={driverList}
+      disabled={!summary.length}
+    />
   </div>
 </section>
+
 
         {/* 같은 2열 그리드를 재사용 → 아래 컨텐츠도 위 기준선과 정확히 수직 정렬 */}
 {selectedDriver ? (
