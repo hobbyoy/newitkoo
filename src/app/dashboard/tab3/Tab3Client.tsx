@@ -21,6 +21,8 @@ interface Summary {
 interface Deductions { empDeduct: number; indDeduct: number; rentalDeduct: number; damageDeduct: number; etcDeduct: number; freshback: number }
 interface PdfMakeInstance { createPdf: (docDef: object) => { download: (filename?: string) => void }; vfs?: Record<string, string>; fonts?: unknown }
 
+const GRID = 'grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-[64px]'
+
 const Tab3Client = () => {
   useRoleGuard('admin')
 
@@ -39,7 +41,6 @@ const Tab3Client = () => {
 
   const selectedDriver = useMemo(() => summary.find(d => d.uid === selectedUid), [summary, selectedUid])
 
-  // pdfmake + Noto 폰트
   useEffect(() => {
     (async () => {
       const m = await import('pdfmake/build/pdfmake')
@@ -57,7 +58,6 @@ const Tab3Client = () => {
     })()
   }, [])
 
-  // 기사 목록
   useEffect(() => {
     (async () => {
       const snap = await getDocs(collection(db, 'Users'))
@@ -66,7 +66,6 @@ const Tab3Client = () => {
     })()
   }, [])
 
-  // 기간 요약
   useEffect(() => {
     if (!startDate || !endDate) return
     (async () => {
@@ -117,87 +116,83 @@ const Tab3Client = () => {
       <main className="max-w-[1024px] mx-auto py-8 px-4">
         <h1 className="text-[12px] font-semibold text-black mb-4">기사별 실지급 정산</h1>
 
-        {/* 상단 컨트롤 (각 360px / 44px) */}
-        <div className="flex flex-row items-center justify-center gap-4 mb-8">
-          <div className="w-[360px]">
+        {/* 상단 두 박스: 이 좌표를 '정렬 기준선'으로 사용 */}
+        <section className={`${GRID} mb-10 justify-items-center lg:justify-items-stretch`}>
+          {/* 좌 기준(날짜) */}
+          <div className="w-[360px] lg:justify-self-start">
             <DateRangeBox onChange={(s, e) => { setStartDate(s); setEndDate(e) }} />
           </div>
-          <div className="w-[360px]">
+          {/* 우 기준(기사 선택) */}
+          <div className="w-[360px] lg:justify-self-end">
             <DriverSelectBox value={selectedUid} onChange={setSelectedUid} options={driverList} disabled={!summary.length} />
           </div>
-        </div>
+        </section>
 
-        {/* 중단 2열: 좌 정보 / 우 입력(빨강·파랑) */}
+        {/* 같은 2열 그리드를 재사용 → 아래 컨텐츠도 위 기준선과 정확히 수직 정렬 */}
         {selectedDriver ? (
-          <section className="mx-auto max-w-[1024px] grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            {/* 좌: 정보 카드 */}
-            <div className="bg-white rounded-2xl shadow-md p-6">
-              <div className="w-[360px] mx-auto">
-                <h2 className="text-[48px] leading-tight font-bold text-black mb-2">{selectedDriver.name}</h2>
-                <p className="text-[14px] text-black/80 mb-2">{selectedDriver.email}</p>
-                <div className="space-y-1 text-[13px] text-black/90">
-                  <p>ROUTE LIST  :</p>
-                  <p>Coupang ID : {Array.from(selectedDriver.ids).join(', ')}</p>
-                  <p>배송 총 건수 : 배송 {selectedDriver.totalDelivery}건 / 반품 {selectedDriver.totalReturn}건 / 총 {selectedDriver.totalCount}건</p>
-                  <p className="font-semibold pt-1">기사수익 : {selectedDriver.driverIncome.toLocaleString()}원</p>
-                </div>
+          <section className={`${GRID} items-start`}>
+            {/* 좌: 기사 정보 (하얀 카드 제거, 텍스트만) */}
+            <div className="w-[360px] lg:justify-self-start">
+              <h2 className="text-[48px] leading-tight font-bold text-black mb-2">{selectedDriver.name}</h2>
+              <p className="text-[14px] text-black/80 mb-2">{selectedDriver.email}</p>
+              <div className="space-y-1 text-[13px] text-black/90">
+                <p>ROUTE LIST  :</p>
+                <p>Coupang ID : {Array.from(selectedDriver.ids).join(', ')}</p>
+                <p>배송 총 건수 : 배송 {selectedDriver.totalDelivery}건 / 반품 {selectedDriver.totalReturn}건 / 총 {selectedDriver.totalCount}건</p>
+                <p className="font-semibold pt-1">기사수익 : {selectedDriver.driverIncome.toLocaleString()}원</p>
               </div>
             </div>
 
-            {/* 우: 입력(빨강/파랑) */}
-            <div className="space-y-6">
+            {/* 우: 빨간/파란 박스 (오른쪽 기준선에 정렬) */}
+            <div className="w-[360px] flex flex-col gap-6 lg:justify-self-end">
               {/* 🔴 기사부담 비용 입력 */}
-              <div className="w-[360px] mx-auto">
-                <DriverFeeBox
-                  deductions={deductions[selectedDriver.uid] || {}}
-                  onChange={handleDeductionChange}
-                />
-              </div>
-
-{/* 🔵 기사 추가 수익 (프레시백) — 라벨 없이 placeholder로 안내, 입력창 44px/14px */}
-{(() => {
-  const d = deductions[selectedDriver.uid] || {}
-  return (
-    <div className="w-[360px] mx-auto">
-      <div className="rounded-2xl p-5 text-white bg-gradient-to-b from-[#58AFFF] to-[#2D91FF] shadow-md">
-        <h3 className="text-[16px] font-semibold text-center mb-4">기사 추가 수익</h3>
-        <input
-          aria-label="기사 프레시백 수익"
-          type="number"
-          inputMode="numeric"
-          min={0}
-          step={1000}
-          placeholder="기사 프레시백 수익"
-          value={(d.freshback ?? '').toString()}
-          onChange={(e) => handleDeductionChange('freshback', e.target.value)}
-          className="w-full h-11 px-4 rounded-lg border border-neutral-300 shadow-sm
-                     bg-white text-black text-[14px] text-right placeholder:text-neutral-400
-                     focus:outline-none focus:ring-2 focus:ring-white/50"
-        />
-      </div>
-    </div>
-  )
-})()}
+              <DriverFeeBox
+                deductions={deductions[selectedDriver.uid] || {}}
+                onChange={handleDeductionChange}
+              />
+              {/* 🔵 기사 추가 수익 (라벨 없음, placeholder 안내) */}
+              {(() => {
+                const d = deductions[selectedDriver.uid] || {}
+                return (
+                  <div className="rounded-2xl p-5 text-white bg-gradient-to-b from-[#58AFFF] to-[#2D91FF] shadow-md">
+                    <h3 className="text-[16px] font-semibold text-center mb-4">기사 추가 수익</h3>
+                    <input
+                      aria-label="기사 프레시백 수익"
+                      type="number" inputMode="numeric" min={0} step={1000}
+                      placeholder="기사 프레시백 수익"
+                      value={(d.freshback ?? '').toString()}
+                      onChange={(e) => handleDeductionChange('freshback', e.target.value)}
+                      className="w-full h-11 px-4 rounded-lg border border-neutral-300 shadow-sm
+                                 bg-white text-black text-[14px] text-right placeholder:text-neutral-400
+                                 focus:outline-none focus:ring-2 focus:ring-[#2D91FF]/40"
+                    />
+                  </div>
+                )
+              })()}
             </div>
           </section>
         ) : (
-          <div className="mx-auto w-full max-w-[720px] bg-white rounded-2xl shadow p-10 text-center text-gray-500">
+          <div className="mx-auto w-full max-w-[720px] text-center text-gray-500">
             기간과 기사를 선택하면 정산 카드가 표시됩니다.
           </div>
         )}
 
-        {/* 하단 전체 폭: 최종 실지급액 + 버튼 */}
+        {/* 하단: 최종 기사 실지급액 (상단 기준선에 맞춘 컨테이너 폭) */}
         {selectedDriver && (() => {
           const d = deductions[selectedDriver.uid] || {}
           const totalDeduct = (d.empDeduct || 0) + (d.indDeduct || 0) + (d.rentalDeduct || 0) + (d.damageDeduct || 0) + (d.etcDeduct || 0)
           const finalPay = selectedDriver.driverIncome - totalDeduct + (d.freshback || 0)
           return (
             <div className="mx-auto max-w-[1024px] mt-12">
+              {/* 굵은 가로선 */}
               <div className="border-t-[6px] border-black my-10" />
+              {/* 좌 텍스트 / 우 금액 → 위 2열과 같은 폭에서 자연스럽게 양끝 정렬 */}
               <div className="flex items-center justify-between">
                 <span className="text-[28px] font-semibold">최종 기사 실지급액</span>
                 <span className="text-[36px] font-bold">{finalPay.toLocaleString()}원</span>
               </div>
+
+              {/* 버튼은 가운데 */}
               <div className="w-[360px] mx-auto mt-6 flex justify-center gap-3">
                 <button
                   onClick={() => pdfMakeRef.current?.createPdf({
@@ -219,7 +214,7 @@ const Tab3Client = () => {
                       driverIncome: selectedDriver.driverIncome, totalFee: selectedDriver.totalFee, itkooFee: selectedDriver.totalFee,
                       ids: Array.from(selectedDriver.ids), routes: Array.from(selectedDriver.routes),
                       totalDeduction: totalDeduct, freshback: d.freshback || 0, finalPay,
-                      createdAt: new Date(), // 로직 변경 없이 유지
+                      createdAt: new Date(),
                     })
                     alert('✅ 저장 완료')
                   }}
