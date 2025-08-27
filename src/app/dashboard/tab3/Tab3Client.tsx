@@ -124,16 +124,6 @@ const Tab3Client = () => {
   </div>
 </section>
 
-{/* 상단: 날짜/기사 선택 — '중앙 정렬' 2열 */}
-<section className="grid grid-cols-1 lg:[grid-template-columns:360px_360px] lg:justify-center gap-4 lg:gap-8 mb-10">
-  <div className="w-[360px]">
-    <DateRangeBox onChange={(s, e) => { setStartDate(s); setEndDate(e) }} />
-  </div>
-  <div className="w-[360px]">
-    <DriverSelectBox value={selectedUid} onChange={setSelectedUid} options={driverList} disabled={!summary.length} />
-  </div>
-</section>
-
         {/* 같은 2열 그리드를 재사용 → 아래 컨텐츠도 위 기준선과 정확히 수직 정렬 */}
 {selectedDriver ? (
   <section className="grid grid-cols-1 lg:[grid-template-columns:360px_360px] lg:justify-center gap-6 lg:gap-8">
