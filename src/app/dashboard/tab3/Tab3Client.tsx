@@ -114,7 +114,15 @@ const Tab3Client = () => {
     <div className="bg-white min-h-screen">
       <TabNavigation />
       <main className="max-w-[1024px] mx-auto py-8 px-4">
-        <h1 className="text-[12px] font-semibold text-black mb-4">기사별 실지급 정산</h1>
+<section className="grid grid-cols-1 lg:[grid-template-columns:360px_360px] lg:justify-center gap-4 lg:gap-8 mb-10">
+  <div className="w-[360px] flex flex-col gap-2">
+    <h1 className="text-[12px] font-semibold text-black">기사별 실지급 정산</h1>
+    <DateRangeBox onChange={(s, e) => { setStartDate(s); setEndDate(e) }} />
+  </div>
+  <div className="w-[360px]">
+    <DriverSelectBox value={selectedUid} onChange={setSelectedUid} options={driverList} disabled={!summary.length} />
+  </div>
+</section>
 
 {/* 상단: 날짜/기사 선택 — '중앙 정렬' 2열 */}
 <section className="grid grid-cols-1 lg:[grid-template-columns:360px_360px] lg:justify-center gap-4 lg:gap-8 mb-10">
