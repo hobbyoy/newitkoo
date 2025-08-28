@@ -22,7 +22,7 @@ export default function DateRangeBox({ onChange }: Props) {
   }
 
   return (
-    <div className="relative w-[350px]">
+    <div className="relative z-0 w-[350px]">  {/* 래퍼에 z-0: 기준층 명시(선택) */}
       {/* 날짜 선택 버튼 */}
       <button
         onClick={() => setShowCalendar(!showCalendar)}
@@ -46,7 +46,7 @@ export default function DateRangeBox({ onChange }: Props) {
 
       {/* 달력 */}
       {showCalendar && (
-        <div className="absolute z-10 mt-2 w-[350px] transition-all duration-300 ease-in-out">
+        <div className="absolute z-[999] mt-2 w-[350px] transition-all duration-300 ease-in-out">
         <CustomCalendar onChange={handleChange} />
         </div>
       )}

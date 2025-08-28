@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore'
 import useRoleGuard from '@/hooks/useRoleGuard'
 import TabNavigation from '@/components/TabNavigation'
-import DateRangeBox from '@/components/tab3/DateRangeBox' // Tab3 컴포넌트 재활용
+import DateRangeBox from '@/components/tab3/DateRangeBox' // Tab3의 날짜 범위 선택 UI 재활용
 
 interface FinalPayout {
   uid: string
@@ -82,7 +82,7 @@ export default function Tab4() {
   }
 
   const handleChange = (uid: string, field: keyof Deductions, value: string) => {
-    setDeductions(prev => ({
+    setDeductions((prev: Record<string, Partial<Deductions>>) => ({
       ...prev,
       [uid]: {
         ...prev[uid],
@@ -114,7 +114,7 @@ export default function Tab4() {
         finalNet,
         createdAt: new Date()
       })
-      setSaved(prev => ({ ...prev, [data.uid]: true }))
+      setSaved((prev: Record<string, boolean>) => ({ ...prev, [data.uid]: true }))
     } catch (err) {
       console.error('❌ Error saving payout:', err)
     }
@@ -123,13 +123,14 @@ export default function Tab4() {
   return (
     <div className="bg-white min-h-screen">
       <TabNavigation />
-      <main className="max-w-[1024px] mx-auto py-8 px-4">
+      {/* 데스크탑 카드 폭 확대(1024 → 1280)로 한 줄 유지/스크롤 최소화 */}
+      <main className="max-w-[1280px] mx-auto py-8 px-4">
         {/* 제목 중앙 */}
         <h1 className="text-[12px] font-semibold text-black text-center mb-6">
           잇쿠 수익 정산 (Tab4)
         </h1>
 
-        {/* 날짜선택 박스 중앙 */}
+        {/* 날짜 선택 박스 중앙 */}
         <div className="flex justify-center mb-4">
           <div className="w-[360px]">
             <DateRangeBox
@@ -151,27 +152,29 @@ export default function Tab4() {
           </button>
         </div>
 
-        {/* 표: 폭/폰트/줄바꿈(한 줄) 개선 */}
+        {/* 표: 데스크탑은 스크롤 제거, 모바일/좁은 화면만 가로 스크롤 허용 */}
         {payouts.length === 0 ? (
-          <p className="text-gray-500 text-sm text-center">📭 불러온 기사 수익 데이터가 없습니다.</p>
+          <p className="text-gray-500 text-sm text-center">
+            날짜를 선택하면 해당기간의 수수료계산을 시작할 수 있습니다
+          </p>
         ) : (
-          <div className="overflow-x-auto border rounded-xl shadow-sm">
-            <table className="min-w-[1024px] w-full text-[14px]">
+          <div className="overflow-x-auto lg:overflow-visible border rounded-xl shadow-sm">
+            <table className="min-w-[1280px] lg:min-w-0 w-full text-[14px]">
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr className="text-center text-gray-700">
-                  <th className="border-b px-4 py-3 whitespace-nowrap">기사명</th>
-                  <th className="border-b px-4 py-3 whitespace-nowrap">이메일</th>
-                  <th className="border-b px-4 py-3 whitespace-nowrap">잇쿠 수수료</th>
-                  <th className="border-b px-4 py-3 whitespace-nowrap">산재보험</th>
-                  <th className="border-b px-4 py-3 whitespace-nowrap">고용보험</th>
-                  <th className="border-b px-4 py-3 whitespace-nowrap">용차</th>
-                  <th className="border-b px-4 py-3 whitespace-nowrap">기타</th>
-                  <th className="border-b px-4 py-3 whitespace-nowrap">최종 수익</th>
-                  <th className="border-b px-4 py-3 whitespace-nowrap">저장</th>
+                  <th className="border-b px-3 py-2.5 whitespace-nowrap">기사명</th>
+                  <th className="border-b px-3 py-2.5 whitespace-nowrap">이메일</th>
+                  <th className="border-b px-3 py-2.5 whitespace-nowrap">잇쿠 수수료</th>
+                  <th className="border-b px-3 py-2.5 whitespace-nowrap">산재보험</th>
+                  <th className="border-b px-3 py-2.5 whitespace-nowrap">고용보험</th>
+                  <th className="border-b px-3 py-2.5 whitespace-nowrap">용차</th>
+                  <th className="border-b px-3 py-2.5 whitespace-nowrap">기타</th>
+                  <th className="border-b px-3 py-2.5 whitespace-nowrap">최종 수익</th>
+                  <th className="border-b px-3 py-2.5 whitespace-nowrap">저장</th>
                 </tr>
               </thead>
               <tbody>
-                {payouts.map((p, i) => {
+                {payouts.map((p: FinalPayout, i: number) => {
                   const d = deductions[p.uid] || {}
                   const insOp = d.insOp || 0
                   const empOp = d.empOp || 0
@@ -181,9 +184,9 @@ export default function Tab4() {
 
                   return (
                     <tr key={p.uid} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-4 py-3 whitespace-nowrap">{p.name}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{p.email}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                      <td className="px-3 py-2.5 whitespace-nowrap">{p.name}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">{p.email}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap text-right">
                         {(p.itkooFee ?? 0).toLocaleString()}
                       </td>
 
@@ -193,7 +196,7 @@ export default function Tab4() {
                         ['rentalOp', rentalOp],
                         ['etcOp', etcOp]
                       ] as const).map(([key, val]) => (
-                        <td className="px-4 py-3 whitespace-nowrap" key={key}>
+                        <td className="px-3 py-2.5 whitespace-nowrap" key={key}>
                           <input
                             type="number"
                             inputMode="numeric"
@@ -208,11 +211,11 @@ export default function Tab4() {
                         </td>
                       ))}
 
-                      <td className="px-4 py-3 whitespace-nowrap text-right font-semibold text-green-700">
+                      <td className="px-3 py-2.5 whitespace-nowrap text-right font-semibold text-green-700">
                         {(finalNet ?? 0).toLocaleString()}
                       </td>
 
-                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                      <td className="px-3 py-2.5 whitespace-nowrap text-center">
                         {saved[p.uid] ? (
                           <span className="text-green-600">✅ 저장됨</span>
                         ) : (
