@@ -50,6 +50,10 @@ const today = (): string => fmt(new Date())
 
 const isNonEmpty = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
 
+function ensureStringArray(v: unknown): string[] | undefined {
+  return Array.isArray(v) && v.every((x) => typeof x === 'string') ? (v as string[]) : undefined
+}
+
 function canSaveRecord(params: {
   date: string
   coupangId: string
@@ -107,15 +111,14 @@ export default function Tab0() {
       try {
         const userDoc = await getDoc(doc(db, 'Users', userUid))
         if (userDoc.exists()) {
-          const data = userDoc.data() as any
-          // 다양한 키 대비
-          ids =
-            (Array.isArray(data?.coupangIds) && data.coupangIds) ||
-            (Array.isArray(data?.coupang_id_list) && data.coupang_id_list) ||
-            (Array.isArray(data?.coupangIdList) && data.coupangIdList) ||
-            []
+          const data = userDoc.data() as Record<string, unknown>
+          const fromUser =
+            ensureStringArray(data['coupangIds']) ??
+            ensureStringArray(data['coupang_id_list']) ??
+            ensureStringArray(data['coupangIdList'])
+          if (fromUser) ids = fromUser.map((c) => c.toLowerCase())
         }
-      } catch {}
+      } catch {/* ignore */}
 
       // 2) Users에 없으면 Routes에서 이메일/UID 매칭으로 역추적
       if (ids.length === 0) {
@@ -123,11 +126,13 @@ export default function Tab0() {
           const snap = await getDocs(collection(db, 'Routes'))
           const setIds = new Set<string>()
           snap.forEach((r) => {
-            // email/ownerEmail/operatorEmail/allowedUids 중 하나라도 매칭
-            const rEmail = ((r.get('email') || r.get('ownerEmail') || r.get('operatorEmail') || '') + '').toLowerCase()
-            const allowed = r.get('allowedUids') as string[] | undefined
-            const coupangIdField = (r.get('coupangId') || r.get('coupangID') || r.get('cid') || '') + ''
-            let cid = coupangIdField.trim()
+            const rEmailRaw = (r.get('email') || r.get('ownerEmail') || r.get('operatorEmail') || '')
+            const rEmail = typeof rEmailRaw === 'string' ? rEmailRaw.toLowerCase() : ''
+            const allowedRaw = r.get('allowedUids')
+            const allowedUids = Array.isArray(allowedRaw) ? allowedRaw.filter((x) => typeof x === 'string') as string[] : undefined
+
+            let cidField = r.get('coupangId') ?? r.get('coupangID') ?? r.get('cid')
+            let cid = typeof cidField === 'string' ? cidField.trim() : ''
             if (!cid) {
               // doc id에서 추출 (ROUTE_CPID)
               const id = r.id
@@ -135,12 +140,15 @@ export default function Tab0() {
               if (idx >= 0) cid = id.slice(idx + 1)
             }
             if (!cid) return
-            if (rEmail ? rEmail === userEmail : Array.isArray(allowed) ? allowed.includes(userUid) : false) {
+
+            const passEmail = rEmail ? rEmail === userEmail : false
+            const passUid = Array.isArray(allowedUids) ? allowedUids.includes(userUid) : false
+            if (passEmail || passUid) {
               setIds.add(cid.toLowerCase())
             }
           })
           ids = Array.from(setIds)
-        } catch {}
+        } catch {/* ignore */}
       }
 
       ids.sort((a, b) => (a < b ? -1 : 1))
@@ -160,8 +168,8 @@ export default function Tab0() {
         const arr: RouteItem[] = []
         snap.forEach((r) => {
           // coupangId 판단
-          const coupangIdField = (r.get('coupangId') || r.get('coupangID') || r.get('cid') || '') + ''
-          let rCid = coupangIdField.trim().toLowerCase()
+          let rCidField = r.get('coupangId') ?? r.get('coupangID') ?? r.get('cid')
+          let rCid = typeof rCidField === 'string' ? rCidField.trim().toLowerCase() : ''
           if (!rCid) {
             const id = r.id
             const idx = id.indexOf('_')
@@ -170,13 +178,16 @@ export default function Tab0() {
           if (rCid !== form.coupangId.toLowerCase()) return
 
           // 이메일/UID 매칭
-          const rEmail = ((r.get('email') || r.get('ownerEmail') || r.get('operatorEmail') || '') + '').toLowerCase()
-          const allowed = r.get('allowedUids') as string[] | undefined
-          const emailOrUidOk = rEmail ? rEmail === email : Array.isArray(allowed) ? allowed.includes(uid) : true
+          const rEmailRaw = (r.get('email') || r.get('ownerEmail') || r.get('operatorEmail') || '')
+          const rEmail = typeof rEmailRaw === 'string' ? rEmailRaw.toLowerCase() : ''
+          const allowedRaw = r.get('allowedUids')
+          const allowedUids = Array.isArray(allowedRaw) ? allowedRaw.filter((x) => typeof x === 'string') as string[] : undefined
+          const emailOrUidOk = rEmail ? rEmail === email : Array.isArray(allowedUids) ? allowedUids.includes(uid) : true
           if (!emailOrUidOk) return
 
           // routeCode 파싱
-          let code = (r.get('routeCode') as string | undefined) || ''
+          let codeField = r.get('routeCode')
+          let code = typeof codeField === 'string' ? codeField : ''
           if (!code) {
             const id = r.id
             const idx = id.indexOf('_')
@@ -184,8 +195,10 @@ export default function Tab0() {
           }
           if (!code) return
 
-          const name = (r.get('name') as string | undefined) || undefined
-          const active = (r.get('active') as boolean | undefined)
+          const nameField = r.get('name')
+          const name = typeof nameField === 'string' ? nameField : undefined
+          const activeField = r.get('active')
+          const active = typeof activeField === 'boolean' ? activeField : undefined
           if (active === undefined || active === true) {
             arr.push({ routeCode: code, name, active: true })
           }
@@ -248,8 +261,12 @@ export default function Tab0() {
     let name = ''
     try {
       const userDoc = await getDoc(doc(db, 'Users', userUid))
-      name = (userDoc.exists() ? (userDoc.data() as any)?.name : '') || ''
-    } catch {}
+      if (userDoc.exists()) {
+        const d = userDoc.data() as Record<string, unknown>
+        const n = d['name']
+        name = typeof n === 'string' ? n : ''
+      }
+    } catch {/* ignore */}
 
     // 키: uid|date (일 단위 저장)
     const recId = `${userUid}|${form.date}`
