@@ -131,7 +131,7 @@ export default function Tab0() {
             const allowedRaw = r.get('allowedUids')
             const allowedUids = Array.isArray(allowedRaw) ? allowedRaw.filter((x) => typeof x === 'string') as string[] : undefined
 
-            let cidField = r.get('coupangId') ?? r.get('coupangID') ?? r.get('cid')
+            const cidField = r.get('coupangId') ?? r.get('coupangID') ?? r.get('cid')
             let cid = typeof cidField === 'string' ? cidField.trim() : ''
             if (!cid) {
               // doc id에서 추출 (ROUTE_CPID)
@@ -168,7 +168,7 @@ export default function Tab0() {
         const arr: RouteItem[] = []
         snap.forEach((r) => {
           // coupangId 판단
-          let rCidField = r.get('coupangId') ?? r.get('coupangID') ?? r.get('cid')
+          const rCidField = r.get('coupangId') ?? r.get('coupangID') ?? r.get('cid')
           let rCid = typeof rCidField === 'string' ? rCidField.trim().toLowerCase() : ''
           if (!rCid) {
             const id = r.id
@@ -186,7 +186,7 @@ export default function Tab0() {
           if (!emailOrUidOk) return
 
           // routeCode 파싱
-          let codeField = r.get('routeCode')
+          const codeField = r.get('routeCode')
           let code = typeof codeField === 'string' ? codeField : ''
           if (!code) {
             const id = r.id
