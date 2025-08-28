@@ -1,7 +1,8 @@
-// src/app/dashboard/tab0/page.tsx (Figma 스타일 유지 + 멀티 노선 선택 대응)
+// src/app/dashboard/tab0/page.tsx (Figma 스타일 유지 + 멀티 노선 선택, 정식 빌드용)
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
+import { auth, db } from '@/lib/firebase'
 import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs } from 'firebase/firestore'
 import TabNavigation from '@/components/TabNavigation'
 import { Input } from '@/components/ui/input'
@@ -13,194 +14,195 @@ import { CalendarIcon, Check } from 'lucide-react'
 import { ko } from 'date-fns/locale'
 
 /**
- * 이 파일은 기존 Figma UI를 유지하면서, "그날 탔던 모든 노선"을 다중 선택(claimedRoutes[])으로 저장하도록 리라이트되었습니다.
- * 또한 캔버스/샌드박스 환경에서 `@/lib/firebase` 경로가 해석되지 않는 문제를 피하기 위해
- * Firebase를 동적 임포트(상대→별칭 순)하는 `loadFirebase()`를 도입했습니다.
- * 실제 배포/로컬 레포에선 상대경로 또는 tsconfig paths 중 하나가 적용되어 정상 동작합니다.
+ * 변경 요약
+ * - 기사들이 그날 탔던 모든 노선을 다중 선택(claimedRoutes[])하여 저장
+ * - 노선별 건수는 받지 않음(총 배송/반품만 저장) → 추후 Tab11/12에서 분배
+ * - DailyRecords 문서 키는 `${uid}|${date}`로 단순화(일 단위 입력)
+ * - Figma UI 스타일/컴포넌트 유지
  */
 
-// ================= Types =================
+// ============ Types ============
 interface RouteItem { routeCode: string; name?: string; active?: boolean }
 
 interface DailyRecordDoc {
   uid: string
   email: string
   name: string
-  deliveryDate: string
-  coupangId: string
-  // 단일 route 필드는 폐기하고, 기사 자기신고 노선 목록(claimedRoutes)로 대체
-  claimedRoutes: string[]
-  shift: string
+  deliveryDate: string            // YYYY-MM-DD
+  coupangId: string               // 기사 입력값(소문자 저장)
+  claimedRoutes: string[]         // 그날 탄 모든 노선
+  shift: string                   // 주간/야간
   deliveryCount: number
   returnCount: number
   totalCount: number
   createdAt: unknown
 }
 
-// ================= Firebase 동적 로더 =================
-let __firebase: { db: any; auth: any } | null = null
-async function loadFirebase(): Promise<{ db: any; auth: any } | null> {
-  if (__firebase) return __firebase
-  try {
-    // 프로젝트 구조 기준 상대경로 먼저 시도
-    const modRel: any = await import('../../../lib/firebase')
-    const db = modRel.db ?? modRel.default?.db
-    const auth = modRel.auth ?? modRel.default?.auth
-    if (db && auth) { __firebase = { db, auth }; return __firebase }
-  } catch {}
-  try {
-    // tsconfig paths 적용 환경에서 별칭 경로 시도
-    const modAlias: any = await import('@/lib/firebase')
-    const db = modAlias.db ?? modAlias.default?.db
-    const auth = modAlias.auth ?? modAlias.default?.auth
-    if (db && auth) { __firebase = { db, auth }; return __firebase }
-  } catch {}
-  console.warn('[Tab0] Firebase 모듈을 로드하지 못했습니다. 프리뷰 모드로 동작합니다.')
-  return null
-}
-
-// ================= 유틸 =================
-const fmt = (d: Date) => {
+// ============ Utils ============
+const fmt = (d: Date): string => {
   const yyyy = d.getFullYear()
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')
   return `${yyyy}-${mm}-${dd}`
 }
 
-const today = () => fmt(new Date())
+const today = (): string => fmt(new Date())
 
-function isNonEmpty(v: unknown): v is string {
-  return typeof v === 'string' && v.trim().length > 0
+const isNonEmpty = (v: unknown): v is string =>
+  typeof v === 'string' && v.trim().length > 0
+
+export function canSaveRecord(params: {
+  date: string
+  coupangId: string
+  shift: string
+  claimedRoutes: string[]
+}): boolean {
+  const { date, coupangId, shift, claimedRoutes } = params
+  return (
+    isNonEmpty(date) &&
+    isNonEmpty(coupangId) &&
+    isNonEmpty(shift) &&
+    Array.isArray(claimedRoutes) &&
+    claimedRoutes.length > 0
+  )
 }
 
+// ============ Component ============
 export default function Tab0() {
-  // ===== 상태 =====
+  // 폼 상태
   const [form, setForm] = useState({
-    date: '',
+    date: today(),
     coupangId: '',
-    // route: ''  // ❌ 단일 노선 입력 제거
     shift: '',
     deliveryCount: '',
     returnCount: '',
   })
-  const [claimedRoutes, setClaimedRoutes] = useState<string[]>([]) // ✅ 다중 노선 선택
+  const [claimedRoutes, setClaimedRoutes] = useState<string[]>([])
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [totalCount, setTotalCount] = useState(0)
   const [message, setMessage] = useState('')
-  const [errors, setErrors] = useState<{ [k: string]: boolean }>({})
+  const [errors, setErrors] = useState<Record<string, boolean>>({})
   const [routes, setRoutes] = useState<RouteItem[]>([])
-  const [envWarn, setEnvWarn] = useState<string>('')
 
-  // 초기 날짜 = 오늘
-  React.useEffect(() => { setForm((f) => ({ ...f, date: today() })) }, [])
-
-  // 라우트 목록 로드
+  // 라우트 옵션 로드(활성 노선만)
   useEffect(() => {
     (async () => {
-      const fb = await loadFirebase()
-      if (!fb) {
-        setEnvWarn('Firebase 설정을 불러오지 못해 미리보기용 노선만 표시합니다. 배포 환경에선 tsconfig paths/상대경로를 확인하세요.')
-        setRoutes([
-          { routeCode: '302B', name: '테스트 302B', active: true },
-          { routeCode: '308B02', name: '테스트 308B02', active: true },
-          { routeCode: '111A', name: '테스트 111A', active: true },
-          { routeCode: '111B', name: '테스트 111B', active: true },
-        ])
-        return
-      }
       try {
-        const snap = await getDocs(collection(fb.db, 'Routes'))
+        const snap = await getDocs(collection(db, 'Routes'))
         const arr: RouteItem[] = []
-        snap.forEach((d) => {
-          const code = d.get('routeCode') as string | undefined
-          const name = d.get('name') as string | undefined
-          const active = d.get('active') as boolean | undefined
-          if (code && (active === undefined || active)) arr.push({ routeCode: code, name, active: true })
+        snap.forEach((docSnap) => {
+          // routeCode는 필드 또는 문서ID에서 파싱
+          const fieldCode = docSnap.get('routeCode') as string | undefined
+          let code = fieldCode
+          if (!code) {
+            const id = docSnap.id
+            const sep = id.indexOf('_')
+            code = (sep >= 0 ? id.slice(0, sep) : id) || ''
+          }
+          if (!code) return
+          const name = docSnap.get('name') as string | undefined
+          const active = docSnap.get('active') as boolean | undefined
+          if (active === undefined || active === true) {
+            arr.push({ routeCode: code, name, active: true })
+          }
         })
         arr.sort((a, b) => (a.routeCode < b.routeCode ? -1 : 1))
         setRoutes(arr)
       } catch (e) {
-        console.error('[Tab0] Routes 로드 실패:', e)
-        setEnvWarn('Routes 로드 오류: Firestore 권한/인터넷/경로를 확인하세요.')
+        console.error('[Tab0] Routes load error:', e)
       }
     })()
   }, [])
 
   // 합계 업데이트
-  const updateTotal = (next: typeof form) => {
-    const delivery = Number(next.deliveryCount || 0)
-    const returns = Number(next.returnCount || 0)
-    setTotalCount(delivery + returns)
+  const updateTotal = (delivery: string, returns: string) => {
+    const d = Number(delivery || 0)
+    const r = Number(returns || 0)
+    setTotalCount(d + r)
   }
 
+  // 입력 핸들러
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
-    const updated = { ...form, [name]: value }
-    setForm(updated)
-    updateTotal(updated)
+    const next = { ...form, [name]: value }
+    setForm(next)
+    if (name === 'deliveryCount' || name === 'returnCount') {
+      updateTotal(next.deliveryCount, next.returnCount)
+    }
     setErrors((prev) => ({ ...prev, [name]: false }))
   }
 
   // 저장 가능 여부
-  const canSave = useMemo(() => {
-    const errs: Record<string, boolean> = {}
-    if (!isNonEmpty(form.date)) errs.date = true
-    if (!isNonEmpty(form.coupangId)) errs.coupangId = true
-    if (!isNonEmpty(form.shift)) errs.shift = true
-    if (claimedRoutes.length === 0) errs.claimedRoutes = true
-    setErrors((prev) => ({ ...prev, ...errs }))
-    return Object.keys(errs).length === 0
-  }, [form.date, form.coupangId, form.shift, claimedRoutes])
+  const canSave = useMemo(
+    () =>
+      canSaveRecord({
+        date: form.date,
+        coupangId: form.coupangId,
+        shift: form.shift,
+        claimedRoutes,
+      }),
+    [form.date, form.coupangId, form.shift, claimedRoutes]
+  )
 
   // 저장
   const handleSubmit = async () => {
-    if (!canSave) {
+    // 필수 검증
+    const newErrors: Record<string, boolean> = {}
+    if (!form.date) newErrors.date = true
+    if (!form.coupangId) newErrors.coupangId = true
+    if (!form.shift) newErrors.shift = true
+    if (claimedRoutes.length === 0) newErrors.claimedRoutes = true
+    if (Object.keys(newErrors).length > 0) {
+      setErrors((prev) => ({ ...prev, ...newErrors }))
       setMessage('❗ 필수 입력 항목을 모두 작성해 주세요.')
       return
     }
-    const fb = await loadFirebase()
-    if (!fb) { setMessage('❌ Firebase 설정이 로드되지 않았습니다.'); return }
 
-    const user = fb.auth.currentUser
-    if (!user) { setMessage('❌ 로그인 상태가 아닙니다.'); return }
+    const user = auth.currentUser
+    if (!user) {
+      setMessage('❌ 로그인 상태가 아닙니다.')
+      return
+    }
 
     const uid = user.uid
-    const email = user.email || ''
+    const email = user.email ?? ''
 
-    // 사용자 이름 조회 (없으면 공백)
+    // 사용자 이름
     let name = ''
     try {
-      const userSnap = await getDoc(doc(fb.db, 'Users', uid))
-      name = (userSnap.exists() ? userSnap.data()?.name : '') || ''
+      const userDoc = await getDoc(doc(db, 'Users', uid))
+      name = (userDoc.exists() ? (userDoc.data() as { name?: string }).name : '') || ''
     } catch {}
 
-    // 기존 키는 uid|date|coupangId|route였지만, 이제 route 분해를 안 하므로 uid|date 키로 저장
-    // (후속 월간/일간 분배는 DailySplits/MonthlyAllocations에서 관리)
-    const key = `${uid}|${form.date}`
-    const docRef = doc(fb.db, 'DailyRecords', key)
-    const existing = await getDoc(docRef)
+    // 키: uid|date (일 단위 저장)
+    const recId = `${uid}|${form.date}`
+    const recRef = doc(db, 'DailyRecords', recId)
+    const existing = await getDoc(recRef)
     if (existing.exists()) {
-      setMessage('⚠️ 해당 날짜의 기록이 이미 존재합니다. 수정이 필요하면 운영자에게 문의하세요.')
+      setMessage('⚠️ 이미 해당 날짜의 기록이 있습니다.')
       return
     }
 
     try {
-      await setDoc(docRef, {
+      const deliveryCountNum = Number(form.deliveryCount) || 0
+      const returnCountNum = Number(form.returnCount) || 0
+      await setDoc(recRef, {
         uid,
         email,
         name,
         deliveryDate: form.date,
         coupangId: form.coupangId.trim().toLowerCase(),
-        claimedRoutes: claimedRoutes.map((r) => r.trim()), // ✅ 기사 자기신고 노선 목록
+        claimedRoutes: claimedRoutes.map((r) => r.trim()),
         shift: form.shift,
-        deliveryCount: Number(form.deliveryCount) || 0,
-        returnCount: Number(form.returnCount) || 0,
-        totalCount,
+        deliveryCount: deliveryCountNum,
+        returnCount: returnCountNum,
+        totalCount: deliveryCountNum + returnCountNum,
         createdAt: serverTimestamp(),
       } as DailyRecordDoc)
 
       setMessage('✅ 실적이 성공적으로 저장되었습니다!')
-      setForm({ date: form.date, coupangId: '', shift: '', deliveryCount: '', returnCount: '' })
+      // date는 유지, 나머지 리셋
+      setForm((f) => ({ ...f, coupangId: '', shift: '', deliveryCount: '', returnCount: '' }))
       setClaimedRoutes([])
       setTotalCount(0)
     } catch (err) {
@@ -209,14 +211,14 @@ export default function Tab0() {
     }
   }
 
-  // ================== UI ==================
+  // ============ UI ============
   return (
     <div className="min-h-screen bg-white">
       <TabNavigation />
       <main className="max-w-md mx-auto py-10 px-4 flex flex-col items-center gap-6">
         <h1 className="text-2xl font-normal text-black text-center font-sans">일일 운행 등록</h1>
 
-        {/* 배송일 선택 (Figma 구성) */}
+        {/* 배송일 선택 */}
         <div className="w-[307px]">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
@@ -231,11 +233,11 @@ export default function Tab0() {
                 locale={ko}
                 selected={form.date ? new Date(form.date + 'T00:00:00') : undefined}
                 onSelect={(d) => {
-                  if (!d) return
-                  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-                  const ymd = local.toISOString().slice(0, 10)
-                  setForm((f) => ({ ...f, date: ymd }))
-                  setCalendarOpen(false)
+                  if (d) {
+                    const offset = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+                    setForm((f) => ({ ...f, date: offset.toISOString().slice(0, 10) }))
+                    setCalendarOpen(false)
+                  }
                 }}
                 className="rounded-md"
                 modifiersClassNames={{ selected: 'bg-[#0088FF] text-white' }}
@@ -245,7 +247,7 @@ export default function Tab0() {
           {errors.date && <p className="text-red-500 text-xs mt-1">필수 입력입니다.</p>}
         </div>
 
-        {/* 입력 필드 (Figma) */}
+        {/* 입력 필드들 */}
         <div className="flex flex-col w-[307px] gap-4">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">쿠팡배송 어플에서 사용한 ID</label>
@@ -278,7 +280,9 @@ export default function Tab0() {
                         key={r.routeCode}
                         type="button"
                         onClick={() => {
-                          setClaimedRoutes((prev) => checked ? prev.filter((x) => x !== r.routeCode) : [...prev, r.routeCode])
+                          setClaimedRoutes((prev) =>
+                            checked ? prev.filter((x) => x !== r.routeCode) : [...prev, r.routeCode]
+                          )
                           setErrors((p) => ({ ...p, claimedRoutes: false }))
                         }}
                         className={`w-full flex items-center justify-between px-3 py-2 text-left text-sm rounded hover:bg-gray-50 ${checked ? 'bg-blue-50' : ''}`}
@@ -364,8 +368,22 @@ export default function Tab0() {
         </Button>
 
         {message && <p className="text-sm text-center text-gray-700 font-medium whitespace-pre-wrap">{message}</p>}
-        {envWarn && <p className="text-xs text-center text-yellow-700 bg-yellow-50 border rounded px-2 py-1">{envWarn}</p>}
       </main>
     </div>
   )
+}
+
+// ============ Lightweight in-browser tests ============
+function __assert(name: string, cond: boolean) {
+  if (!cond) console.error(`[Tab0 tests] ❌ ${name}`); else console.log(`[Tab0 tests] ✅ ${name}`)
+}
+
+if (typeof window !== 'undefined') {
+  try {
+    __assert('today() returns YYYY-MM-DD', /^\d{4}-\d{2}-\d{2}$/.test(today()))
+    __assert('canSaveRecord blocks empty routes', canSaveRecord({ date: '2025-08-01', coupangId: 'cp1', shift: '주간', claimedRoutes: [] }) === false)
+    __assert('canSaveRecord ok with one route', canSaveRecord({ date: '2025-08-01', coupangId: 'cp1', shift: '주간', claimedRoutes: ['302B'] }) === true)
+  } catch (e) {
+    console.warn('[Tab0 tests] Skipped due to runtime environment:', e)
+  }
 }
