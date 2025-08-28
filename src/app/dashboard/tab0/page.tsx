@@ -1,4 +1,4 @@
-// src/app/dashboard/tab0/page.tsx (Figma 스타일 유지 + 멀티 노선 선택 + 계정 연동 필터)
+// src/app/dashboard/tab0/page.tsx (Figma 유지 + 멀티 노선 + 계정 연동 필터 + Tab8 단가등록 기반 필터)
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
@@ -15,10 +15,12 @@ import { ko } from 'date-fns/locale'
 
 /**
  * 변경 요약
- * - 로그인한 사용자 계정에 연결된 **쿠팡ID만** 선택 가능
- * - 선택된 쿠팡ID + **해당 이메일(또는 UID)과 연결된 노선만** 멀티선택 가능
- * - DailyRecords 문서 키는 `${uid}|${date}`로 단순화(일 단위 입력)
- * - Figma UI 스타일 유지
+ * - 로그인 계정과 연결된 **쿠팡ID만** 선택 가능
+ * - 선택된 쿠팡ID + (이메일/UID 매칭) + (선택된 시프트까지 매칭)한 **노선만** 멀티 선택 가능
+ * - 매칭 소스: Tab8(기사 노선 단가 등록)이 쓰는 컬렉션 우선 사용
+ *   └ 후보 컬렉션 이름: 'DriverRouteRates' | 'Routes' | 'RouteRates' | 'RoutePrices' (첫 결과를 사용)
+ * - Users/{uid}의 coupangIds도 보조 소스로 사용(없으면 Tab8 데이터에서 역추출)
+ * - DailyRecords 키: `${uid}|${date}`
  */
 
 // ============ Types ============
@@ -29,13 +31,24 @@ interface DailyRecordDoc {
   email: string
   name: string
   deliveryDate: string            // YYYY-MM-DD
-  coupangId: string               // 기사 입력값(소문자 저장)
+  coupangId: string               // 소문자 저장
   claimedRoutes: string[]         // 그날 탄 모든 노선
   shift: string                   // 주간/야간
   deliveryCount: number
   returnCount: number
   totalCount: number
   createdAt: unknown
+}
+
+interface RateLink { // Tab8 단가등록에서 가져올 연결 정보
+  routeCode: string
+  coupangId: string
+  shift?: string
+  email?: string
+  allowedUids?: string[]
+  uid?: string
+  name?: string
+  active?: boolean
 }
 
 // ============ Utils ============
@@ -54,6 +67,20 @@ function ensureStringArray(v: unknown): string[] | undefined {
   return Array.isArray(v) && v.every((x) => typeof x === 'string') ? (v as string[]) : undefined
 }
 
+function extractCoupangIdsFromUserData(data: Record<string, unknown>): string[] | undefined {
+  const direct = ensureStringArray(data['coupangIds'])
+    ?? ensureStringArray(data['coupang_id_list'])
+    ?? ensureStringArray(data['coupangIdList'])
+  if (direct) return direct.map((c) => c.toLowerCase())
+  for (const k of Object.keys(data)) {
+    if (/coupang.*id/i.test(k)) {
+      const arr = ensureStringArray(data[k])
+      if (arr) return arr.map((c) => c.toLowerCase())
+    }
+  }
+  return undefined
+}
+
 function canSaveRecord(params: {
   date: string
   coupangId: string
@@ -69,12 +96,20 @@ function canSaveRecord(params: {
   )
 }
 
+function parseRouteAndCidFromDocId(id: string): { routeCode?: string; coupangId?: string } {
+  const idx = id.indexOf('_')
+  if (idx < 0) return {}
+  const routeCode = id.slice(0, idx)
+  const coupangId = id.slice(idx + 1)
+  return { routeCode, coupangId }
+}
+
 // ============ Component ============
 export default function Tab0() {
   // 폼 상태
   const [form, setForm] = useState({
     date: today(),
-    coupangId: '', // ✅ 드롭다운으로 제한 선택
+    coupangId: '',
     shift: '',
     deliveryCount: '',
     returnCount: '',
@@ -93,6 +128,9 @@ export default function Tab0() {
   const [availableCoupangIds, setAvailableCoupangIds] = useState<string[]>([])
   const [routes, setRoutes] = useState<RouteItem[]>([])
 
+  // Tab8 단가등록 원천 데이터 캐시
+  const [rateLinks, setRateLinks] = useState<RateLink[]>([])
+
   // ===== 초기 인증/연동 정보 로딩 =====
   useEffect(() => {
     const u = auth.currentUser
@@ -105,63 +143,107 @@ export default function Tab0() {
     setUid(userUid)
     setEmail(userEmail)
 
-    // 1) Users/{uid}에서 coupangIds를 우선 로드
     ;(async () => {
+      // 0) Tab8 컬렉션 후보에서 연결 데이터 우선 로드
+      const candidates = ['DriverRouteRates', 'Routes', 'RouteRates', 'RoutePrices']
+      const links: RateLink[] = []
+      for (const col of candidates) {
+        try {
+          const snap = await getDocs(collection(db, col))
+          snap.forEach((r) => {
+            // email/ownerEmail/operatorEmail/userEmail/driverEmail
+            const eRaw = (r.get('email') || r.get('ownerEmail') || r.get('operatorEmail') || r.get('userEmail') || r.get('driverEmail') || '')
+            const e = typeof eRaw === 'string' ? eRaw.toLowerCase() : ''
+
+            // allowedUids/ownerUid/uid/driverUid
+            const allowedRaw = r.get('allowedUids')
+            const allowedUids = Array.isArray(allowedRaw) ? allowedRaw.filter((x) => typeof x === 'string') as string[] : undefined
+            const uidCandidate = (r.get('ownerUid') || r.get('uid') || r.get('driverUid') || '')
+            const docUid = typeof uidCandidate === 'string' ? uidCandidate : undefined
+
+            // coupangId: 필드 or id
+            const cidField = r.get('coupangId') ?? r.get('coupangID') ?? r.get('cid')
+            let c = typeof cidField === 'string' ? cidField.trim().toLowerCase() : ''
+            if (!c) c = parseRouteAndCidFromDocId(r.id).coupangId?.toLowerCase() || ''
+            if (!c) return
+
+            // routeCode: 필드 or id
+            const codeField = r.get('routeCode')
+            let code = typeof codeField === 'string' ? codeField : ''
+            if (!code) code = parseRouteAndCidFromDocId(r.id).routeCode || ''
+            if (!code) return
+
+            const shRaw = r.get('shift')
+            const sh = typeof shRaw === 'string' ? shRaw : undefined
+
+            const nameField = r.get('name')
+            const name = typeof nameField === 'string' ? nameField : undefined
+            const activeField = r.get('active')
+            const active = typeof activeField === 'boolean' ? activeField : undefined
+
+            links.push({ routeCode: code, coupangId: c, shift: sh, email: e, allowedUids, uid: docUid, name, active })
+          })
+          if (links.length > 0) break // 첫 유효 컬렉션만 사용
+        } catch {/* try next */}
+      }
+
+      setRateLinks(links)
+
+      // 1) Users/{uid}에서 coupangIds 읽기
       let ids: string[] = []
       try {
         const userDoc = await getDoc(doc(db, 'Users', userUid))
         if (userDoc.exists()) {
           const data = userDoc.data() as Record<string, unknown>
-          const fromUser =
-            ensureStringArray(data['coupangIds']) ??
-            ensureStringArray(data['coupang_id_list']) ??
-            ensureStringArray(data['coupangIdList'])
-          if (fromUser) ids = fromUser.map((c) => c.toLowerCase())
+          const fromUser = extractCoupangIdsFromUserData(data)
+          if (fromUser) ids = fromUser
         }
       } catch {/* ignore */}
 
-      // 2) Users에 없으면 Routes에서 이메일/UID 매칭으로 역추적
-      if (ids.length === 0) {
-        try {
-          const snap = await getDocs(collection(db, 'Routes'))
-          const setIds = new Set<string>()
-          snap.forEach((r) => {
-            const rEmailRaw = (r.get('email') || r.get('ownerEmail') || r.get('operatorEmail') || '')
-            const rEmail = typeof rEmailRaw === 'string' ? rEmailRaw.toLowerCase() : ''
-            const allowedRaw = r.get('allowedUids')
-            const allowedUids = Array.isArray(allowedRaw) ? allowedRaw.filter((x) => typeof x === 'string') as string[] : undefined
-
-            const cidField = r.get('coupangId') ?? r.get('coupangID') ?? r.get('cid')
-            let cid = typeof cidField === 'string' ? cidField.trim() : ''
-            if (!cid) {
-              // doc id에서 추출 (ROUTE_CPID)
-              const id = r.id
-              const idx = id.indexOf('_')
-              if (idx >= 0) cid = id.slice(idx + 1)
-            }
-            if (!cid) return
-
-            const passEmail = rEmail ? rEmail === userEmail : false
-            const passUid = Array.isArray(allowedUids) ? allowedUids.includes(userUid) : false
-            if (passEmail || passUid) {
-              setIds.add(cid.toLowerCase())
-            }
-          })
-          ids = Array.from(setIds)
-        } catch {/* ignore */}
+      // 2) Users에 없으면 Tab8 링크에서 현재 사용자와 매칭되는 쿠팡ID 역추출
+      if (ids.length === 0 && links.length > 0) {
+        const setIds = new Set<string>()
+        links.forEach((l) => {
+          const emailOk = l.email ? l.email === userEmail : false
+          const uidOk = l.allowedUids ? l.allowedUids.includes(userUid) : (l.uid ? l.uid === userUid : false)
+          if (emailOk || uidOk) setIds.add(l.coupangId)
+        })
+        ids = Array.from(setIds)
       }
 
       ids.sort((a, b) => (a < b ? -1 : 1))
       setAvailableCoupangIds(ids)
-
-      // 하나뿐이면 자동 선택
       if (ids.length === 1) setForm((f) => ({ ...f, coupangId: ids[0] }))
     })()
   }, [])
 
-  // 선택한 쿠팡ID + 사용자 이메일/UID 기준으로 노선 필터
+  // 선택한 쿠팡ID + 사용자 매칭(+선택된 시프트)으로 노선 필터링
   useEffect(() => {
     if (!form.coupangId || !email) { setRoutes([]); setClaimedRoutes([]); return }
+
+    // Tab8 링크 기반 우선
+    if (rateLinks.length > 0) {
+      const arr: RouteItem[] = []
+      const lowerCid = form.coupangId.toLowerCase()
+      for (const l of rateLinks) {
+        if (l.coupangId !== lowerCid) continue
+        const emailOk = l.email ? l.email === email : false
+        const uidOk = l.allowedUids ? l.allowedUids.includes(uid) : (l.uid ? l.uid === uid : false)
+        if (!(emailOk || uidOk)) continue
+        // 시프트가 선택되어 있으면 해당 시프트만 노출
+        if (isNonEmpty(form.shift) && isNonEmpty(l.shift) && l.shift !== form.shift) continue
+        if (!isNonEmpty(l.routeCode)) continue
+        const active = l.active === undefined ? true : l.active
+        if (!active) continue
+        arr.push({ routeCode: l.routeCode, name: l.name, active: true })
+      }
+      arr.sort((a, b) => (a.routeCode < b.routeCode ? -1 : 1))
+      setRoutes(arr)
+      setClaimedRoutes([])
+      return
+    }
+
+    // Fallback: Routes 컬렉션 전수 스캔(레거시 대응)
     ;(async () => {
       try {
         const snap = await getDocs(collection(db, 'Routes'))
@@ -170,49 +252,46 @@ export default function Tab0() {
           // coupangId 판단
           const rCidField = r.get('coupangId') ?? r.get('coupangID') ?? r.get('cid')
           let rCid = typeof rCidField === 'string' ? rCidField.trim().toLowerCase() : ''
-          if (!rCid) {
-            const id = r.id
-            const idx = id.indexOf('_')
-            if (idx >= 0) rCid = id.slice(idx + 1).toLowerCase()
-          }
+          if (!rCid) rCid = parseRouteAndCidFromDocId(r.id).coupangId?.toLowerCase() || ''
           if (rCid !== form.coupangId.toLowerCase()) return
 
           // 이메일/UID 매칭
-          const rEmailRaw = (r.get('email') || r.get('ownerEmail') || r.get('operatorEmail') || '')
+          const rEmailRaw = (r.get('email') || r.get('ownerEmail') || r.get('operatorEmail') || r.get('userEmail') || r.get('driverEmail') || '')
           const rEmail = typeof rEmailRaw === 'string' ? rEmailRaw.toLowerCase() : ''
-          const allowedRaw = r.get('allowedUids')
+          const allowedRaw = r.get('allowedUids') ?? r.get('uids')
           const allowedUids = Array.isArray(allowedRaw) ? allowedRaw.filter((x) => typeof x === 'string') as string[] : undefined
-          const emailOrUidOk = rEmail ? rEmail === email : Array.isArray(allowedUids) ? allowedUids.includes(uid) : true
+          const uidRaw = (r.get('ownerUid') || r.get('uid') || r.get('driverUid') || '')
+          const rUid = typeof uidRaw === 'string' ? uidRaw : undefined
+          const emailOrUidOk = rEmail ? rEmail === email : (allowedUids ? allowedUids.includes(uid) : (rUid ? rUid === uid : true))
           if (!emailOrUidOk) return
+
+          // 시프트 필터(선택된 경우에만)
+          const shRaw = r.get('shift')
+          const sh = typeof shRaw === 'string' ? shRaw : ''
+          if (isNonEmpty(form.shift) && isNonEmpty(sh) && sh !== form.shift) return
 
           // routeCode 파싱
           const codeField = r.get('routeCode')
           let code = typeof codeField === 'string' ? codeField : ''
-          if (!code) {
-            const id = r.id
-            const idx = id.indexOf('_')
-            code = (idx >= 0 ? id.slice(0, idx) : id) || ''
-          }
+          if (!code) code = parseRouteAndCidFromDocId(r.id).routeCode || ''
           if (!code) return
 
           const nameField = r.get('name')
           const name = typeof nameField === 'string' ? nameField : undefined
           const activeField = r.get('active')
           const active = typeof activeField === 'boolean' ? activeField : undefined
-          if (active === undefined || active === true) {
-            arr.push({ routeCode: code, name, active: true })
-          }
+          if (active === undefined || active === true) arr.push({ routeCode: code, name, active: true })
         })
         arr.sort((a, b) => (a.routeCode < b.routeCode ? -1 : 1))
         setRoutes(arr)
-        setClaimedRoutes([]) // 쿠팡ID 바뀌면 선택 초기화
+        setClaimedRoutes([])
       } catch (e) {
-        console.error('[Tab0] Routes filter load error:', e)
+        console.error('[Tab0] Routes fallback filter error:', e)
         setRoutes([])
         setClaimedRoutes([])
       }
     })()
-  }, [form.coupangId, email, uid])
+  }, [form.coupangId, form.shift, email, uid, rateLinks])
 
   // 합계 업데이트
   const updateTotal = (delivery: string, returns: string) => {
@@ -228,6 +307,10 @@ export default function Tab0() {
     setForm(next)
     if (name === 'deliveryCount' || name === 'returnCount') {
       updateTotal(next.deliveryCount, next.returnCount)
+    }
+    if (name === 'coupangId' || name === 'shift') {
+      // 쿠팡ID/시프트 변경 시 노선 선택 초기화
+      setClaimedRoutes([])
     }
     setErrors((prev) => ({ ...prev, [name]: false }))
   }
@@ -359,7 +442,7 @@ export default function Tab0() {
             {errors.coupangId && <p className="text-xs text-red-500 mt-1">필수 입력입니다.</p>}
           </div>
 
-          {/* 🔁 단일 노선 입력 → 멀티 노선 선택 (선택된 쿠팡ID + 이메일/UID 매칭 필터) */}
+          {/* 🔁 멀티 노선 선택 (Tab8 단가등록 매칭) */}
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">그날 탔던 모든 노선</label>
             <Popover>
@@ -389,7 +472,7 @@ export default function Tab0() {
                     )
                   })}
                   {form.coupangId && routes.length === 0 && (
-                    <div className="text-xs text-gray-600 px-2 py-1">선택한 쿠팡ID와 연결된 노선이 없습니다.</div>
+                    <div className="text-xs text-gray-600 px-2 py-1">선택한 조건에 맞는 노선이 없습니다.</div>
                   )}
                 </div>
               </PopoverContent>
