@@ -44,6 +44,18 @@ interface ReconRow {
   status: 'matched'|'mismatch'
 }
 
+// Minimal runtime interface for xlsx (no dev types required)
+interface XLSXLike {
+  read: (buf: ArrayBuffer, opts: { type: 'array' }) => { Sheets: Record<string, unknown>; SheetNames: string[] }
+  utils: { sheet_to_json: (ws: unknown, opts: { defval: string }) => Array<Record<string, unknown>> }
+}
+function isXLSXLike(v: unknown): v is XLSXLike {
+  if (typeof v !== 'object' || v === null) return false
+  const o = v as Record<string, unknown>
+  const utils = o['utils'] as Record<string, unknown> | undefined
+  return typeof o['read'] === 'function' && !!utils && typeof utils['sheet_to_json'] === 'function'
+}
+
 // ===== Helpers =====
 function toYMD(d: Date): string { const yyyy = d.getFullYear(); const mm = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); return `${yyyy}-${mm}-${dd}` }
 const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
@@ -70,9 +82,14 @@ function parseExcelDate(v: unknown): string | undefined {
   return isNaN(d2.getTime()) ? undefined : toYMD(d2)
 }
 
-// Avoid type-only reference to 'xlsx' so build doesn't require its types at compile time.
-let __XLSX: any = null
-async function loadXLSX(): Promise<any> { if (__XLSX) return __XLSX; __XLSX = await import('xlsx'); return __XLSX }
+let __XLSX: unknown = null
+async function loadXLSX(): Promise<XLSXLike> {
+  if (isXLSXLike(__XLSX)) return __XLSX
+  const mod = await import('xlsx')
+  if (!isXLSXLike(mod)) throw new Error('xlsx 모듈을 불러왔지만 예상한 형태가 아닙니다.')
+  __XLSX = mod
+  return mod
+}
 
 function groupBy<T>(items: T[], keyFn: (t:T)=>string): Record<string, T[]> {
   const m: Record<string, T[]> = {}
@@ -103,7 +120,7 @@ export default function Tab9Recon() {
     if (!f) return
     setMsg('엑셀 읽는 중...')
     try {
-      const XLSX: any = await loadXLSX()
+      const XLSX = await loadXLSX()
       const buf = await f.arrayBuffer()
       const wb = XLSX.read(buf, { type: 'array' })
       const sheetName: string = wb.SheetNames.includes('정산Raw') ? '정산Raw' : wb.SheetNames[0]
