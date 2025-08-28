@@ -10,6 +10,7 @@ import { doc, getDoc } from 'firebase/firestore'
 const tabs = [
   { label: '실적입력', path: '/dashboard/tab0', role: 'admin' },
   { label: '실적입력(운)', path: '/dashboard/tab1', role: 'admin' },
+  { label: 'test', path: '/dashboard/tab9', role: 'admin' },
   { label: '실적리포트', path: '/dashboard/tab2', role: 'admin' },
   { label: '기사정산', path: '/dashboard/tab3', role: 'admin' },
   { label: '수익요약', path: '/dashboard/tab4', role: 'admin' },
