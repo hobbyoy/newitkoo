@@ -1,7 +1,7 @@
 // src/app/dashboard/tab4/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { db } from '@/lib/firebase'
 import {
   collection,
@@ -62,7 +62,7 @@ export default function Tab4() {
         savedMap[data.uid] = exist.exists()
 
         if (exist.exists()) {
-          const existingData = exist.data() as Partial<Deductions> & Record<string, any>
+          const existingData = exist.data() as Partial<Deductions>
           deductionMap[data.uid] = {
             insOp: existingData.insOp || 0,
             empOp: existingData.empOp || 0,
@@ -123,14 +123,13 @@ export default function Tab4() {
     <div className="bg-white min-h-screen">
       <TabNavigation />
       <main className="max-w-[1024px] mx-auto py-8 px-4">
-        {/* 제목 중앙 한 줄 */}
+        {/* 제목 중앙 */}
         <h1 className="text-[12px] font-semibold text-black text-center mb-6">
           잇쿠 수익 정산 (Tab4)
         </h1>
 
         {/* 상단 컨트롤: 중앙 2열(360px × 360px) */}
         <section className="grid grid-cols-1 lg:[grid-template-columns:360px_360px] lg:justify-center items-start gap-4 lg:gap-8 mb-10">
-          {/* 좌: 기간 입력(시작/종료) */}
           <div className="w-[360px]">
             <div className="flex flex-col gap-3">
               <input
@@ -149,8 +148,6 @@ export default function Tab4() {
               />
             </div>
           </div>
-
-          {/* 우: 불러오기 버튼(동일 높이) */}
           <div className="w-[360px]">
             <button
               onClick={loadData}
@@ -161,7 +158,7 @@ export default function Tab4() {
           </div>
         </section>
 
-        {/* 표 영역: overflow-x 컨테이너 + sticky header + zebra */}
+        {/* 표: overflow-x + sticky header + zebra */}
         {payouts.length === 0 ? (
           <p className="text-gray-500 text-sm text-center">📭 불러온 기사 수익 데이터가 없습니다.</p>
         ) : (
@@ -195,20 +192,20 @@ export default function Tab4() {
                       <td className="px-3 py-3">{p.email}</td>
                       <td className="px-3 py-3 text-right">{(p.itkooFee ?? 0).toLocaleString()}</td>
 
-                      {[
+                      {([
                         ['insOp', insOp],
                         ['empOp', empOp],
                         ['rentalOp', rentalOp],
                         ['etcOp', etcOp]
-                      ].map(([key, val]) => (
+                      ] as const).map(([key, val]) => (
                         <td className="px-3 py-3" key={key}>
                           <input
                             type="number"
                             inputMode="numeric"
                             min={0}
                             step={1000}
-                            value={val as number}
-                            onChange={(e) => handleChange(p.uid, key as keyof Deductions, e.target.value)}
+                            value={val}
+                            onChange={(e) => handleChange(p.uid, key, e.target.value)}
                             className="w-full h-11 px-3 rounded-md border border-neutral-300 shadow-sm
                                        text-[14px] text-right placeholder:text-neutral-400
                                        focus:outline-none focus:ring-2 focus:ring-[#2D91FF]/40"
