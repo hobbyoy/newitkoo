@@ -51,7 +51,7 @@ const today = (): string => fmt(new Date())
 const isNonEmpty = (v: unknown): v is string =>
   typeof v === 'string' && v.trim().length > 0
 
-export function canSaveRecord(params: {
+function canSaveRecord(params: {
   date: string
   coupangId: string
   shift: string
@@ -362,6 +362,7 @@ export default function Tab0() {
         {/* 저장 버튼 */}
         <Button
           onClick={handleSubmit}
+          disabled={!canSave}
           className="w-[85px] h-[41px] px-4 py-2 rounded-md border border-[#0088FF] bg-[#0088FF] text-white text-sm font-semibold shadow-[0_2px_4px_rgba(0,0,0,0.15)] hover:brightness-110 transition-all"
         >
           저장하기
