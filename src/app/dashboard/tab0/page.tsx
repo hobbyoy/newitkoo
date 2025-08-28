@@ -15,12 +15,13 @@ import { ko } from 'date-fns/locale'
 
 /**
  * 변경 요약
- * - 로그인 계정과 연결된 **쿠팡ID만** 선택 가능
+ * - 로그인 계정과 연결된 **쿠팡ID만** 선택 가능 (싱글 선택)
  * - 선택된 쿠팡ID + (이메일/UID 매칭) + (선택된 시프트까지 매칭)한 **노선만** 멀티 선택 가능
  * - 매칭 소스: Tab8(기사 노선 단가 등록)이 쓰는 컬렉션 우선 사용
- *   └ 후보 컬렉션 이름: 'DriverRouteRates' | 'Routes' | 'RouteRates' | 'RoutePrices' (첫 결과를 사용)
+ *   └ 후보 컬렉션: 'DriverRouteRates' → 'Routes' → 'RouteRates' → 'RoutePrices' (첫 유효 결과 사용)
  * - Users/{uid}의 coupangIds도 보조 소스로 사용(없으면 Tab8 데이터에서 역추출)
- * - DailyRecords 키: `${uid}|${date}`
+ * - DailyRecords 키: `${uid}|${date}` (일 단위)
+ * - 🔧 UI: 쿠팡ID/노선 선택을 "상자 리스트" 스타일로 변경 (제공 이미지 느낌)
  */
 
 // ============ Types ============
@@ -104,6 +105,20 @@ function parseRouteAndCidFromDocId(id: string): { routeCode?: string; coupangId?
   return { routeCode, coupangId }
 }
 
+// 작은 체크박스 뱃지 컴포넌트 (선택 스타일 공통)
+function CheckBadge({ selected }: { selected: boolean }) {
+  return (
+    <span
+      className={`inline-flex h-4 w-4 items-center justify-center rounded border ${
+        selected ? 'bg-[#0088FF] border-[#0088FF]' : 'border-gray-300 bg-white'
+      }`}
+      aria-hidden
+    >
+      {selected ? <Check className="w-3 h-3 text-white" /> : null}
+    </span>
+  )
+}
+
 // ============ Component ============
 export default function Tab0() {
   // 폼 상태
@@ -151,23 +166,18 @@ export default function Tab0() {
         try {
           const snap = await getDocs(collection(db, col))
           snap.forEach((r) => {
-            // email/ownerEmail/operatorEmail/userEmail/driverEmail
             const eRaw = (r.get('email') || r.get('ownerEmail') || r.get('operatorEmail') || r.get('userEmail') || r.get('driverEmail') || '')
             const e = typeof eRaw === 'string' ? eRaw.toLowerCase() : ''
-
-            // allowedUids/ownerUid/uid/driverUid
             const allowedRaw = r.get('allowedUids')
-            const allowedUids = Array.isArray(allowedRaw) ? allowedRaw.filter((x) => typeof x === 'string') as string[] : undefined
+            const allowedUids = Array.isArray(allowedRaw) ? (allowedRaw.filter((x) => typeof x === 'string') as string[]) : undefined
             const uidCandidate = (r.get('ownerUid') || r.get('uid') || r.get('driverUid') || '')
             const docUid = typeof uidCandidate === 'string' ? uidCandidate : undefined
 
-            // coupangId: 필드 or id
             const cidField = r.get('coupangId') ?? r.get('coupangID') ?? r.get('cid')
             let c = typeof cidField === 'string' ? cidField.trim().toLowerCase() : ''
             if (!c) c = parseRouteAndCidFromDocId(r.id).coupangId?.toLowerCase() || ''
             if (!c) return
 
-            // routeCode: 필드 or id
             const codeField = r.get('routeCode')
             let code = typeof codeField === 'string' ? codeField : ''
             if (!code) code = parseRouteAndCidFromDocId(r.id).routeCode || ''
@@ -221,7 +231,6 @@ export default function Tab0() {
   useEffect(() => {
     if (!form.coupangId || !email) { setRoutes([]); setClaimedRoutes([]); return }
 
-    // Tab8 링크 기반 우선
     if (rateLinks.length > 0) {
       const arr: RouteItem[] = []
       const lowerCid = form.coupangId.toLowerCase()
@@ -230,8 +239,7 @@ export default function Tab0() {
         const emailOk = l.email ? l.email === email : false
         const uidOk = l.allowedUids ? l.allowedUids.includes(uid) : (l.uid ? l.uid === uid : false)
         if (!(emailOk || uidOk)) continue
-        // 시프트가 선택되어 있으면 해당 시프트만 노출
-        if (isNonEmpty(form.shift) && isNonEmpty(l.shift) && l.shift !== form.shift) continue
+        if (isNonEmpty(form.shift) && isNonEmpty(l.shift || '') && l.shift !== form.shift) continue
         if (!isNonEmpty(l.routeCode)) continue
         const active = l.active === undefined ? true : l.active
         if (!active) continue
@@ -249,28 +257,24 @@ export default function Tab0() {
         const snap = await getDocs(collection(db, 'Routes'))
         const arr: RouteItem[] = []
         snap.forEach((r) => {
-          // coupangId 판단
           const rCidField = r.get('coupangId') ?? r.get('coupangID') ?? r.get('cid')
           let rCid = typeof rCidField === 'string' ? rCidField.trim().toLowerCase() : ''
           if (!rCid) rCid = parseRouteAndCidFromDocId(r.id).coupangId?.toLowerCase() || ''
           if (rCid !== form.coupangId.toLowerCase()) return
 
-          // 이메일/UID 매칭
           const rEmailRaw = (r.get('email') || r.get('ownerEmail') || r.get('operatorEmail') || r.get('userEmail') || r.get('driverEmail') || '')
           const rEmail = typeof rEmailRaw === 'string' ? rEmailRaw.toLowerCase() : ''
           const allowedRaw = r.get('allowedUids') ?? r.get('uids')
-          const allowedUids = Array.isArray(allowedRaw) ? allowedRaw.filter((x) => typeof x === 'string') as string[] : undefined
+          const allowedUids = Array.isArray(allowedRaw) ? (allowedRaw.filter((x) => typeof x === 'string') as string[]) : undefined
           const uidRaw = (r.get('ownerUid') || r.get('uid') || r.get('driverUid') || '')
           const rUid = typeof uidRaw === 'string' ? uidRaw : undefined
           const emailOrUidOk = rEmail ? rEmail === email : (allowedUids ? allowedUids.includes(uid) : (rUid ? rUid === uid : true))
           if (!emailOrUidOk) return
 
-          // 시프트 필터(선택된 경우에만)
           const shRaw = r.get('shift')
           const sh = typeof shRaw === 'string' ? shRaw : ''
           if (isNonEmpty(form.shift) && isNonEmpty(sh) && sh !== form.shift) return
 
-          // routeCode 파싱
           const codeField = r.get('routeCode')
           let code = typeof codeField === 'string' ? codeField : ''
           if (!code) code = parseRouteAndCidFromDocId(r.id).routeCode || ''
@@ -309,7 +313,6 @@ export default function Tab0() {
       updateTotal(next.deliveryCount, next.returnCount)
     }
     if (name === 'coupangId' || name === 'shift') {
-      // 쿠팡ID/시프트 변경 시 노선 선택 초기화
       setClaimedRoutes([])
     }
     setErrors((prev) => ({ ...prev, [name]: false }))
@@ -340,7 +343,6 @@ export default function Tab0() {
     const userUid = user.uid
     const userEmail = (user.email || '').toLowerCase()
 
-    // 사용자 이름
     let name = ''
     try {
       const userDoc = await getDoc(doc(db, 'Users', userUid))
@@ -351,7 +353,6 @@ export default function Tab0() {
       }
     } catch {/* ignore */}
 
-    // 키: uid|date (일 단위 저장)
     const recId = `${userUid}|${form.date}`
     const recRef = doc(db, 'DailyRecords', recId)
     const existing = await getDoc(recRef)
@@ -422,64 +423,70 @@ export default function Tab0() {
 
         {/* 입력 필드들 */}
         <div className="flex flex-col w-[307px] gap-4">
-          {/* 쿠팡ID: 계정 연동 목록만 선택 */}
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">쿠팡배송 어플에서 사용한 ID</label>
-            <select
-              name="coupangId"
-              value={form.coupangId}
-              onChange={handleChange}
-              className={`h-[48px] px-3 text-sm border rounded-lg ${errors.coupangId ? 'border-red-500' : 'border-gray-300'}`}
-            >
-              <option value="">선택하세요</option>
-              {availableCoupangIds.map((cid) => (
-                <option key={cid} value={cid}>{cid}</option>
-              ))}
-            </select>
-            {availableCoupangIds.length === 0 && (
-              <p className="text-xs text-yellow-700 bg-yellow-50 border rounded px-2 py-1 mt-1">이 계정과 연결된 쿠팡ID가 없습니다. 운영자에게 권한 등록을 요청하세요.</p>
-            )}
-            {errors.coupangId && <p className="text-xs text-red-500 mt-1">필수 입력입니다.</p>}
+          {/* 쿠팡ID 선택 박스 (싱글) */}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700">쿠팡 ID</label>
+            <div className="rounded-xl border bg-white shadow-sm p-2">
+              <div className="px-3 py-2 text-xs text-gray-500">연결된 ID</div>
+              <ul className="max-h-48 overflow-auto">
+                {availableCoupangIds.map((cid) => {
+                  const selected = form.coupangId.toLowerCase() === cid.toLowerCase()
+                  return (
+                    <li key={cid}>
+                      <button
+                        type="button"
+                        onClick={() => { setForm((f) => ({ ...f, coupangId: cid })); setClaimedRoutes([]); setErrors((p) => ({ ...p, coupangId: false })); }}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-50 text-sm ${selected ? 'bg-blue-50' : ''}`}
+                      >
+                        <CheckBadge selected={selected} />
+                        <span className={`${selected ? 'text-[#0088FF] font-medium' : 'text-gray-800'}`}>{cid}</span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+              {availableCoupangIds.length === 0 && (
+                <div className="px-3 pb-2 text-xs text-yellow-700">이 계정과 연결된 쿠팡ID가 없습니다. 운영자에게 권한 등록을 요청하세요.</div>
+              )}
+            </div>
+            {errors.coupangId && <p className="text-xs text-red-500 mt-1">필수 선택입니다.</p>}
           </div>
 
-          {/* 🔁 멀티 노선 선택 (Tab8 단가등록 매칭) */}
-          <div className="flex flex-col gap-1">
+          {/* 노선 선택 박스 (멀티) */}
+          <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">그날 탔던 모든 노선</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="justify-between h-[48px] px-3 text-sm" disabled={!form.coupangId || routes.length === 0}>
-                  {claimedRoutes.length > 0 ? claimedRoutes.join(', ') : (form.coupangId ? '노선을 선택하세요 (여러 개 가능)' : '먼저 쿠팡ID를 선택하세요')}
-                  <svg width="16" height="16" viewBox="0 0 20 20" className="opacity-60"><path d="M5 7l5 5 5-5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[307px] p-2 rounded-lg shadow-[0_0_14px_rgba(0,0,0,0.07)]">
-                <div className="max-h-56 overflow-auto">
-                  {routes.map((r) => {
-                    const checked = claimedRoutes.includes(r.routeCode)
-                    return (
+            <div className="rounded-xl border bg-white shadow-sm p-2">
+              <div className="px-3 py-2 text-xs text-gray-500">노선 목록 {form.shift ? `(시프트: ${form.shift})` : ''}</div>
+              <ul className="max-h-48 overflow-auto">
+                {routes.map((r) => {
+                  const selected = claimedRoutes.includes(r.routeCode)
+                  return (
+                    <li key={r.routeCode}>
                       <button
-                        key={r.routeCode}
                         type="button"
                         onClick={() => {
-                          setClaimedRoutes((prev) => checked ? prev.filter((x) => x !== r.routeCode) : [...prev, r.routeCode])
+                          setClaimedRoutes((prev) => selected ? prev.filter((x) => x !== r.routeCode) : [...prev, r.routeCode])
                           setErrors((p) => ({ ...p, claimedRoutes: false }))
                         }}
-                        className={`w-full flex items-center justify-between px-3 py-2 text-left text-sm rounded hover:bg-gray-50 ${checked ? 'bg-blue-50' : ''}`}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-gray-50 text-sm ${selected ? 'bg-blue-50' : ''}`}
                       >
-                        <span>{r.routeCode}{r.name ? ` — ${r.name}` : ''}</span>
-                        {checked && <Check className="w-4 h-4 text-[#0088FF]" />}
+                        <div className="flex items-center gap-3">
+                          <CheckBadge selected={selected} />
+                          <span className={`${selected ? 'text-[#0088FF] font-medium' : 'text-gray-800'}`}>{r.routeCode}{r.name ? ` — ${r.name}` : ''}</span>
+                        </div>
                       </button>
-                    )
-                  })}
-                  {form.coupangId && routes.length === 0 && (
-                    <div className="text-xs text-gray-600 px-2 py-1">선택한 조건에 맞는 노선이 없습니다.</div>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
+                    </li>
+                  )
+                })}
+              </ul>
+              {form.coupangId && routes.length === 0 && (
+                <div className="px-3 pb-2 text-xs text-gray-600">선택한 조건에 맞는 노선이 없습니다.</div>
+              )}
+            </div>
             {errors.claimedRoutes && <p className="text-xs text-red-500 mt-1">최소 1개 이상의 노선을 선택하세요.</p>}
           </div>
 
+          {/* 배송/반품, 시프트 */}
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">배송건수</label>
             <Input
