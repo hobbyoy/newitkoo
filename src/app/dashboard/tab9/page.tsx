@@ -1,614 +1,306 @@
-// src/app/dashboard/tab9/page.tsx — 정산 허브 (월→일 노선 분배)
+// src/app/dashboard/tab9/page.tsx — 정산 허브 v2 (엑셀 업로드 → 기사×날짜×노선 집계 + DailyRecords 대조)
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { db } from '@/lib/firebase'
-import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore'
 import TabNavigation from '@/components/TabNavigation'
+import { db } from '@/lib/firebase'
+import { collection, getDocs, query, where } from 'firebase/firestore'
 import { Button } from '@/components/ui/button'
 
-/**
- * Tab9: 운영자 정산 허브
- * - 입력: 월(YYYY-MM), 기사 선택, (선택) CSV 업로드(노선별 월합계)
- * - 데이터: DailyRecords(일별 총합), DriverRouteRates/Routes(허용 노선), RoutePrices(단가)
- * - 처리: 월→일 비례 분배(라운딩/제약/보정) → DailySplits 일괄 저장(+finalAmount)
- * - 주의: no-explicit-any 회피, prefer-const 준수
- */
-
-// ============ Types ============
+// ===== Types =====
 interface DailyRecordDoc {
   uid: string
-  email?: string
   name?: string
+  email?: string
   deliveryDate: string // YYYY-MM-DD
   coupangId?: string
-  claimedRoutes?: string[]
   shift?: string
   deliveryCount: number
   returnCount: number
+  claimedRoutes?: string[]
 }
 
-interface RateLink { // Tab8(단가 등록) 또는 Routes에서 읽는 연결 정보
-  routeCode: string
-  coupangId?: string
+interface StatementRow { // from Excel
+  date: string // YYYY-MM-DD
+  coupangId: string // lower
+  routeCode: string // UPPER
+  deliveries: number
+  returns: number
   shift?: string
-  email?: string
-  allowedUids?: string[]
-  uid?: string
-  name?: string
-  active?: boolean
 }
 
-interface RoutePrice {
-  routeCode: string
-  unitPrice: number
-  returnUnit?: number
-  effectiveFrom: string // YYYY-MM-DD
-  effectiveTo?: string
+interface ReconRow {
+  date: string
+  coupangId: string
+  driverName?: string
+  routesFromExcel: string[]
+  claimedRoutes?: string[]
+  excelDeliveries: number
+  excelReturns: number
+  siteDeliveries: number
+  siteReturns: number
+  diffDeliveries: number
+  diffReturns: number
+  status: 'matched'|'mismatch'
 }
 
-interface DayTotal { deliveries: number; returns: number; claimed?: Set<string>; shift?: string; coupangId?: string }
+// ===== Helpers =====
+function toYMD(d: Date): string { const yyyy = d.getFullYear(); const mm = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); return `${yyyy}-${mm}-${dd}` }
+const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
+const endOfMonthOpen = (d: Date) => new Date(d.getFullYear(), d.getMonth()+1, 1)
 
-interface AllocationMatrix { // route → date → count
-  [routeCode: string]: { [date: string]: number }
-}
+function normalizeText(v: unknown): string { return typeof v === 'string' ? v.trim() : (v==null? '' : String(v).trim()) }
+function lower(v: unknown): string { return normalizeText(v).toLowerCase() }
+function upper(v: unknown): string { return normalizeText(v).toUpperCase() }
 
-interface RouteTotals { [routeCode: string]: { deliveries: number; returns: number } }
-
-// ============ Utils ============
-function monthRange(yyyyMM: string): { start: string; end: string } {
-  const [y, m] = yyyyMM.split('-').map((v) => Number(v))
-  const start = new Date(y, m - 1, 1)
-  const end = new Date(y, m, 1)
-  const toISO = (d: Date) => d.toISOString().slice(0, 10)
-  return { start: toISO(start), end: toISO(end) }
-}
-
-function toYMD(d: Date): string {
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
-
-function parseCSV(text: string): Array<Record<string, string>> {
-  const lines = text.trim().split(/\r?\n/)
-  if (lines.length < 2) return []
-  const headers = lines[0].split(',').map((h) => h.trim())
-  const out: Array<Record<string, string>> = []
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue
-    const cols = lines[i].split(',')
-    const row: Record<string, string> = {}
-    headers.forEach((h, idx) => { row[h] = (cols[idx] ?? '').trim() })
-    out.push(row)
+function parseExcelDate(v: unknown): string | undefined {
+  if (v == null) return undefined
+  if (typeof v === 'number') {
+    // Excel serial → JS date (days since 1899-12-30)
+    const ms = Math.round((v - 25569) * 86400 * 1000)
+    return toYMD(new Date(ms))
   }
-  return out
-}
-
-function sum<T>(arr: T[], f: (t: T) => number): number { return arr.reduce((s, v) => s + f(v), 0) }
-
-function inRange(date: string, from: string, to?: string): boolean {
-  return date >= from && (to ? date < to : true)
-}
-
-function pickPriceForDate(prices: RoutePrice[], route: string, date: string): { unit: number; ret: number } {
-  const cand = prices
-    .filter((p) => p.routeCode === route && inRange(date, p.effectiveFrom, p.effectiveTo))
-    .sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1))
-  const p = cand[0]
-  return { unit: p?.unitPrice ?? 0, ret: p?.returnUnit ?? 0 }
-}
-
-function cloneMatrix(m: AllocationMatrix): AllocationMatrix {
-  const out: AllocationMatrix = {}
-  for (const r of Object.keys(m)) out[r] = { ...m[r] }
-  return out
-}
-
-// Largest Remainder 정수화
-function largestRemainderInt(target: number, weights: Record<string, number>): Record<string, number> {
-  const keys = Object.keys(weights)
-  const totals = sum(keys, (k) => weights[k])
-  if (totals <= 0 || target <= 0) return Object.fromEntries(keys.map((k) => [k, 0]))
-  const raw: Record<string, number> = {}
-  const floored: Record<string, number> = {}
-  for (const k of keys) {
-    const v = (weights[k] / totals) * target
-    raw[k] = v
-    floored[k] = Math.floor(v)
+  const s = normalizeText(v).replace(/\./g,'-').replace(/\//g,'-')
+  const m = s.match(/^(\d{4})[-_]?(\d{1,2})[-_]?(\d{1,2})$/)
+  if (m) {
+    const d = new Date(Number(m[1]), Number(m[2])-1, Number(m[3]))
+    return toYMD(d)
   }
-  let remain = target - sum(keys, (k) => floored[k])
-  const order = keys.map((k) => ({ k, frac: raw[k] - floored[k] })).sort((a, b) => b.frac - a.frac)
-  const out = { ...floored }
-  for (let i = 0; i < order.length && remain > 0; i++) { out[order[i].k]++; remain-- }
-  return out
+  const d2 = new Date(s)
+  return isNaN(d2.getTime()) ? undefined : toYMD(d2)
 }
 
-// 비례 배분 + 마스크 + 일합 보정
-function allocateCounts(
-  days: string[],
-  dayTotals: Record<string, number>,
-  routes: string[],
-  routeMonthly: Record<string, number>,
-  allowed: Record<string, Set<string>> // date → allowed routes
-): AllocationMatrix {
-  const init: AllocationMatrix = {}
-  const weightBase: Record<string, number> = {}
-  for (const d of days) weightBase[d] = Math.max(0, dayTotals[d] ?? 0)
+// Avoid type-only reference to 'xlsx' so build doesn't require its types at compile time.
+let __XLSX: any = null
+async function loadXLSX(): Promise<any> { if (__XLSX) return __XLSX; __XLSX = await import('xlsx'); return __XLSX }
 
-  for (const r of routes) {
-    // allowed days
-    const allowedDays = days.filter((d) => allowed[d]?.has(r))
-    const weight: Record<string, number> = {}
-    let sumAllowed = 0
-    for (const d of allowedDays) { weight[d] = weightBase[d]; sumAllowed += weightBase[d] }
-    // fallback: 허용일이 없으면 모든 day 허용
-    if (allowedDays.length === 0 || sumAllowed === 0) {
-      for (const d of days) weight[d] = weightBase[d]
-    }
-    init[r] = largestRemainderInt(routeMonthly[r] ?? 0, weight)
-  }
-
-  // day sum adjust
-  const out = cloneMatrix(init)
-  for (const d of days) {
-    const target = dayTotals[d] ?? 0
-    const now = sum(routes, (r) => out[r][d] ?? 0)
-    let diff = target - now
-    if (diff === 0) continue
-    if (diff > 0) {
-      // add +1 to routes with largest day weight and allowed
-      const order = routes
-        .filter((r) => allowed[d]?.has(r))
-        .map((r) => ({ r, w: weightBase[d] })) // same weight; could be enhanced
-        .sort((a, b) => b.w - a.w)
-      let idx = 0
-      while (diff > 0 && order.length > 0) {
-        const r = order[idx % order.length].r
-        out[r][d] = (out[r][d] ?? 0) + 1
-        diff--
-        idx++
-      }
-    } else {
-      // remove -1 from routes with biggest current allocation
-      const order = routes
-        .filter((r) => (out[r][d] ?? 0) > 0)
-        .map((r) => ({ r, v: out[r][d] }))
-        .sort((a, b) => (b.v ?? 0) - (a.v ?? 0))
-      let idx = 0
-      while (diff < 0 && order.length > 0) {
-        const r = order[idx % order.length].r
-        if ((out[r][d] ?? 0) > 0) { out[r][d]!--; diff++ }
-        idx++
-      }
-    }
-  }
-  return out
+function groupBy<T>(items: T[], keyFn: (t:T)=>string): Record<string, T[]> {
+  const m: Record<string, T[]> = {}
+  for (const it of items) { const k = keyFn(it); (m[k] ??= []).push(it) }
+  return m
 }
 
-// ============ Page ============
-export default function Tab9Page() {
-  // 필터 상태
-  const [month, setMonth] = useState<string>(() => toYMD(new Date()).slice(0, 7))
-  const [drivers, setDrivers] = useState<Array<{ uid: string; name: string; email?: string }>>([])
-  const [selectedUid, setSelectedUid] = useState<string>('')
+// ===== Page =====
+export default function Tab9Recon() {
+  // 기간 필터
+  const [start, setStart] = useState<string>(() => toYMD(startOfMonth(new Date())))
+  const [end, setEnd] = useState<string>(() => toYMD(endOfMonthOpen(new Date())))
 
-  // 일별 원본/합계
-  const [dayMap, setDayMap] = useState<Record<string, DayTotal>>({})
-  const [days, setDays] = useState<string[]>([])
+  // 업로드된 엑셀 → 정규화 rows + 인덱스
+  const [rows, setRows] = useState<StatementRow[]>([])
+  const [routesByKey, setRoutesByKey] = useState<Record<string, string[]>>({}) // key=date|cid → uniq routes
 
-  // 허용 노선 링크/가격
-  const [rateLinks, setRateLinks] = useState<RateLink[]>([])
-  const [prices, setPrices] = useState<RoutePrice[]>([])
+  // DailyRecords (사이트 입력)
+  const [siteMap, setSiteMap] = useState<Record<string, { deliveries: number; returns: number; name?: string; claimed?: string[] }>>({})
 
-  // 정산서 월합계 (노선별)
-  const [routeTotals, setRouteTotals] = useState<RouteTotals>({})
-
-  // 미리보기 결과
-  const [allocD, setAllocD] = useState<AllocationMatrix>({}) // deliveries
-  const [allocR, setAllocR] = useState<AllocationMatrix>({}) // returns
+  // 표시/필터
+  const [onlyMismatch, setOnlyMismatch] = useState<boolean>(false)
+  const [search, setSearch] = useState<string>('')
   const [msg, setMsg] = useState<string>('')
-  const [busy, setBusy] = useState<boolean>(false)
 
-  // 1) 월의 기사 목록 + 일별 총합 로드
-  useEffect(() => {
-    (async () => {
-      setMsg('')
-      const { start, end } = monthRange(month)
-      // DailyRecords에서 월 범위 내 문서 조회
-      const q1 = query(collection(db, 'DailyRecords'), where('deliveryDate', '>=', start), where('deliveryDate', '<', end))
-      const snap = await getDocs(q1)
-      const byUid = new Map<string, { name: string; email?: string }>()
-      const day: Record<string, DayTotal> = {}
-      const daySet = new Set<string>()
-      snap.forEach((d) => {
-        const r = d.data() as DailyRecordDoc
-        if (!r.uid || !r.deliveryDate) return
-        if (!byUid.has(r.uid)) byUid.set(r.uid, { name: r.name ?? r.uid.slice(0, 6), email: r.email })
-        if (!selectedUid || r.uid === selectedUid) {
-          day[r.deliveryDate] ??= { deliveries: 0, returns: 0 }
-          day[r.deliveryDate].deliveries += Number(r.deliveryCount || 0)
-          day[r.deliveryDate].returns += Number(r.returnCount || 0)
-          day[r.deliveryDate].shift = r.shift
-          day[r.deliveryDate].coupangId = r.coupangId?.toLowerCase()
-          if (Array.isArray(r.claimedRoutes) && r.claimedRoutes.length > 0) {
-            day[r.deliveryDate].claimed = new Set(r.claimedRoutes)
-          }
-          daySet.add(r.deliveryDate)
-        }
-      })
-      setDrivers(Array.from(byUid.entries()).map(([uid, v]) => ({ uid, name: v.name, email: v.email })))
-      setDayMap(day)
-      setDays(Array.from(daySet).sort())
-    })().catch((e) => setMsg(`로드 오류: ${(e as Error).message}`))
-  }, [month, selectedUid])
-
-  // 2) Tab8 링크 / 가격 로드 (전수 후 필터)
-  useEffect(() => {
-    (async () => {
-      const links: RateLink[] = []
-      for (const col of ['DriverRouteRates', 'Routes', 'RouteRates', 'RoutePrices']) {
-        try {
-          const s = await getDocs(collection(db, col))
-          s.forEach((r) => {
-            const routeCode = (r.get('routeCode') as string) || ''
-            if (!routeCode) return
-            const link: RateLink = {
-              routeCode,
-              coupangId: (r.get('coupangId') as string | undefined)?.toLowerCase(),
-              shift: (r.get('shift') as string | undefined) || undefined,
-              email: (r.get('email') as string | undefined)?.toLowerCase() || (r.get('ownerEmail') as string | undefined)?.toLowerCase(),
-              allowedUids: Array.isArray(r.get('allowedUids')) ? (r.get('allowedUids') as string[]) : undefined,
-              uid: (r.get('uid') as string | undefined) || (r.get('ownerUid') as string | undefined) || undefined,
-              name: (r.get('name') as string | undefined) || undefined,
-              active: (typeof r.get('active') === 'boolean' ? (r.get('active') as boolean) : undefined)
-            }
-            links.push(link)
-          })
-          if (links.length > 0) break
-        } catch {/* try next */}
-      }
-      setRateLinks(links)
-
-      // 가격
-      const pSnap = await getDocs(collection(db, 'RoutePrices'))
-      const p: RoutePrice[] = []
-      pSnap.forEach((x) => {
-        const routeCode = x.get('routeCode') as string | undefined
-        const unitPrice = x.get('unitPrice') as number | undefined
-        const effectiveFrom = x.get('effectiveFrom') as string | undefined
-        if (!routeCode || unitPrice == null || !effectiveFrom) return
-        p.push({
-          routeCode,
-          unitPrice,
-          returnUnit: (x.get('returnUnit') as number | undefined) ?? undefined,
-          effectiveFrom,
-          effectiveTo: (x.get('effectiveTo') as string | undefined) ?? undefined,
-        })
-      })
-      setPrices(p)
-    })().catch((e) => setMsg(`링크/가격 로드 오류: ${(e as Error).message}`))
-  }, [])
-
-  // 3) CSV 업로드 → routeTotals 설정
+  // 1) Excel(.xlsx) 업로드 파서
   const onFile = async (f?: File) => {
     if (!f) return
-    const text = await f.text()
-    const rows = parseCSV(text)
-    const acc: RouteTotals = {}
-    for (const r of rows) {
-      const route = (r['routeCode'] || r['route'] || '').trim()
-      if (!route) continue
-      const del = Number(r['deliveries'] ?? r['delivery'] ?? 0) || 0
-      const ret = Number(r['returns'] ?? r['return'] ?? 0) || 0
-      acc[route] ??= { deliveries: 0, returns: 0 }
-      acc[route].deliveries += del
-      acc[route].returns += ret
-    }
-    setRouteTotals(acc)
-  }
-
-  // 4) 허용 노선 마스크(date→Set(route)) 계산
-  const allowedMask = useMemo(() => {
-    const mask: Record<string, Set<string>> = {}
-    for (const d of days) {
-      const base = new Set<string>()
-      const info = dayMap[d]
-      // 1) 기사 자기신고 노선 우선
-      if (info?.claimed && info.claimed.size > 0) {
-        info.claimed.forEach((r) => base.add(r))
-      }
-      // 2) Tab8/Routes 링크 기반 (coupangId/shift 매칭)
-      const cid = info?.coupangId?.toLowerCase()
-      const sh = info?.shift
-      if (cid) {
-        for (const l of rateLinks) {
-          if (l.coupangId && l.coupangId !== cid) continue
-          if (l.shift && sh && l.shift !== sh) continue
-          if (l.active === false) continue
-          base.add(l.routeCode)
-        }
-      }
-      // 3) fallback: 아무 제약 없으면 routeTotals의 모든 노선 허용
-      if (base.size === 0) {
-        for (const r of Object.keys(routeTotals)) base.add(r)
-      }
-      mask[d] = base
-    }
-    return mask
-  }, [days, dayMap, rateLinks, routeTotals])
-
-  // 5) 미리보기 계산
-  const preview = () => {
-    if (!selectedUid) { setMsg('기사(UID)를 선택하세요.'); return }
-    const dDays = days
-    if (dDays.length === 0) { setMsg('해당 월에 DailyRecords가 없습니다.'); return }
-    const dayDel: Record<string, number> = {}
-    const dayRet: Record<string, number> = {}
-    for (const d of dDays) { dayDel[d] = Math.max(0, dayMap[d]?.deliveries ?? 0); dayRet[d] = Math.max(0, dayMap[d]?.returns ?? 0) }
-    const routes = Object.keys(routeTotals)
-    if (routes.length === 0) { setMsg('정산서(월합계)를 업로드하거나 노선 합계를 입력하세요.'); return }
-    const monthlyDel: Record<string, number> = {}
-    const monthlyRet: Record<string, number> = {}
-    for (const r of routes) { monthlyDel[r] = routeTotals[r].deliveries || 0; monthlyRet[r] = routeTotals[r].returns || 0 }
-
-    const A = allocateCounts(dDays, dayDel, routes, monthlyDel, allowedMask)
-    const B = allocateCounts(dDays, dayRet, routes, monthlyRet, allowedMask)
-    setAllocD(A); setAllocR(B)
-    setMsg('분배 미리보기를 생성했습니다.')
-  }
-
-  // 6) 저장 (DailySplits upsert)
-  const save = async () => {
-    if (!selectedUid) { setMsg('기사(UID)를 선택하세요.'); return }
-    if (Object.keys(allocD).length === 0) { setMsg('먼저 미리보기를 생성하세요.'); return }
-    setBusy(true)
+    setMsg('엑셀 읽는 중...')
     try {
-      // 날짜별로 문서 작성
-      for (const d of days) {
-        const routeSplits: Array<{ routeCode: string; deliveries: number; returns: number; unitPrice?: number; amount?: number; returnUnit?: number }> = []
-        for (const r of Object.keys(routeTotals)) {
-          const deliveries = allocD[r]?.[d] ?? 0
-          const returns = allocR[r]?.[d] ?? 0
-          if (deliveries === 0 && returns === 0) continue
-          const pr = pickPriceForDate(prices, r, d)
-          const amount = deliveries * pr.unit - returns * pr.ret
-          routeSplits.push({ routeCode: r, deliveries, returns, unitPrice: pr.unit, returnUnit: pr.ret, amount })
-        }
-        const finalAmount = sum(routeSplits, (x) => x.amount ?? 0)
-        const ref = doc(db, 'DailySplits', `${d}_${selectedUid}`)
-        await setDoc(ref, {
-          id: `${d}_${selectedUid}`,
-          date: d,
-          driverId: selectedUid,
-          routeSplits,
-          finalAmount,
-          splitStatus: 'applied',
-          updatedAt: Date.now(),
-          createdAt: Date.now(),
-        })
+      const XLSX: any = await loadXLSX()
+      const buf = await f.arrayBuffer()
+      const wb = XLSX.read(buf, { type: 'array' })
+      const sheetName: string = wb.SheetNames.includes('정산Raw') ? '정산Raw' : wb.SheetNames[0]
+      const ws = wb.Sheets[sheetName]
+      const json: Array<Record<string, unknown>> = XLSX.utils.sheet_to_json(ws, { defval: '' })
+      if (json.length === 0) { setRows([]); setRoutesByKey({}); setMsg('엑셀 시트가 비어 있습니다.'); return }
+
+      // 헤더 추론: Route, 배송건수(파슬), 반품(운송장), ID, 배송일자, 배송유형(주간/심야)
+      const norm = (s: string) => s.replace(/\s+/g,'').toLowerCase()
+      const headers: string[] = Object.keys(json[0] ?? {})
+      const findHeader = (cands: string[]): string | undefined => headers.find((h: string) => cands.some((c: string) => norm(h).includes(norm(c))))
+      const H = {
+        route: findHeader(['Route','노선']),
+        del: findHeader(['배송건수','파슬','배송']),
+        ret: findHeader(['반품','운송장']),
+        id: findHeader(['ID','쿠팡ID','coupangid','cid']),
+        date: findHeader(['배송일자','date','일자']),
+        shift: findHeader(['배송유형','주간','심야','shift']),
       }
-      setMsg('✅ DailySplits 저장 완료')
+
+      const out: StatementRow[] = []
+      const keyRoutes: Record<string, Set<string>> = {}
+      for (const row of json) {
+        const routeCode = upper((H.route ? row[H.route] : '') as string)
+        const deliveries = Number(H.del ? row[H.del] : 0) || 0
+        const returns = Number(H.ret ? row[H.ret] : 0) || 0
+        const date = parseExcelDate(H.date ? row[H.date] : undefined)
+        const cid = lower(H.id ? row[H.id] : '')
+        const shift = normalizeText(H.shift ? row[H.shift] : '') || undefined
+        // 스킵 조건
+        if (!routeCode || !date || !cid) continue
+        if (deliveries + returns === 0) continue
+        // 기간 필터 내만 수집
+        if (!(date >= start && date < end)) continue
+        out.push({ date, coupangId: cid, routeCode, deliveries, returns, shift })
+        const k = `${date}|${cid}`
+        ;(keyRoutes[k] ??= new Set<string>()).add(routeCode)
+      }
+      setRows(out)
+      const rmap: Record<string,string[]> = {}
+      Object.keys(keyRoutes).forEach((k: string) => { rmap[k] = Array.from(keyRoutes[k] as Set<string>).sort() })
+      setRoutesByKey(rmap)
+      setMsg(`엑셀 로딩 완료: ${out.length} 행, 키 ${Object.keys(rmap).length}개`)
     } catch (e) {
-      setMsg(`저장 오류: ${(e as Error).message}`)
-    } finally { setBusy(false) }
+      setMsg(`엑셀 읽기 오류: ${(e as Error).message}`)
+    }
   }
 
-  // 실시간 합계 계산 (미리보기 UI 용)
-  const daySumRow = (m: AllocationMatrix, d: string): number => sum(Object.keys(m), (r) => m[r]?.[d] ?? 0)
-  const routeSumCol = (m: AllocationMatrix, r: string): number => sum(days, (d) => m[r]?.[d] ?? 0)
+  // 2) DailyRecords 불러오기 (기간)
+  useEffect(() => {
+    (async () => {
+      setMsg('사이트 데이터 로딩...')
+      const q1 = query(collection(db, 'DailyRecords'), where('deliveryDate','>=', start), where('deliveryDate','<', end))
+      const snap = await getDocs(q1)
+      const acc: Record<string, { deliveries: number; returns: number; name?: string; claimed?: string[] }> = {}
+      snap.forEach(d => {
+        const r = d.data() as DailyRecordDoc
+        const date = r.deliveryDate
+        const cid = (r.coupangId ?? '').toLowerCase()
+        if (!date || !cid) return
+        const key = `${date}|${cid}`
+        const prev = acc[key] ?? { deliveries:0, returns:0, name: r.name, claimed: undefined }
+        acc[key] = {
+          deliveries: prev.deliveries + (Number(r.deliveryCount)||0),
+          returns: prev.returns + (Number(r.returnCount)||0),
+          name: prev.name ?? r.name,
+          claimed: r.claimedRoutes ? Array.from(new Set([...(prev.claimed ?? []), ...r.claimedRoutes])) : prev.claimed
+        }
+      })
+      setSiteMap(acc)
+      setMsg('')
+    })().catch(e => setMsg(`사이트 로딩 오류: ${(e as Error).message}`))
+  }, [start, end])
 
-  // 드라이버 표시명
-  const driverLabel = (u: { uid: string; name: string; email?: string }) => `${u.name}${u.email ? ` (${u.email})` : ''}`
+  // 3) 대조 테이블 만들기
+  const table: ReconRow[] = useMemo(() => {
+    const byKey: Record<string, StatementRow[]> = groupBy(rows, (r: StatementRow) => `${r.date}|${r.coupangId}`)
+    const keys = new Set<string>([...Object.keys(byKey), ...Object.keys(siteMap)])
+    const out: ReconRow[] = []
+    keys.forEach((k: string) => {
+      const [date, cid] = k.split('|')
+      const excel = byKey[k] ?? []
+      const excelD = excel.reduce((s: number, r: StatementRow)=>s+r.deliveries,0)
+      const excelR = excel.reduce((s: number, r: StatementRow)=>s+r.returns,0)
+      const routes = routesByKey[k] ?? Array.from(new Set(excel.map((r: StatementRow)=>r.routeCode))).sort()
+      const site = siteMap[k]
+      const siteD = site?.deliveries ?? 0
+      const siteR = site?.returns ?? 0
+      const diffD = excelD - siteD
+      const diffR = excelR - siteR
+      const status: 'matched'|'mismatch' = (diffD===0 && diffR===0) ? 'matched' : 'mismatch'
+      out.push({ date, coupangId: cid, driverName: site?.name, routesFromExcel: routes, claimedRoutes: site?.claimed, excelDeliveries: excelD, excelReturns: excelR, siteDeliveries: siteD, siteReturns: siteR, diffDeliveries: diffD, diffReturns: diffR, status })
+    })
+    out.sort((a: ReconRow,b: ReconRow)=> a.date===b.date ? a.coupangId.localeCompare(b.coupangId) : a.date.localeCompare(b.date))
+    return out
+  }, [rows, routesByKey, siteMap])
+
+  const filtered = table.filter((r: ReconRow) => {
+    if (onlyMismatch && r.status==='matched') return false
+    if (!search.trim()) return true
+    const s = search.trim().toLowerCase()
+    return r.coupangId.includes(s) || (r.driverName?.toLowerCase().includes(s) ?? false) || r.routesFromExcel.some((rt: string)=>rt.toLowerCase().includes(s))
+  })
+
+  // 4) CSV 내보내기
+  const exportCSV = () => {
+    const headers = ['date','coupangId','driverName','routesFromExcel','claimedRoutes','excelDeliveries','excelReturns','siteDeliveries','siteReturns','diffDeliveries','diffReturns','status']
+    const lines = [headers.join(',')]
+    for (const r of filtered) {
+      const row = [r.date, r.coupangId, r.driverName??'', r.routesFromExcel.join('|'), (r.claimedRoutes??[]).join('|'), r.excelDeliveries, r.excelReturns, r.siteDeliveries, r.siteReturns, r.diffDeliveries, r.diffReturns, r.status]
+      lines.push(row.map((v)=>`${String(v).replace(/,/g,';')}`).join(','))
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `reconcile_${start}_${end}.csv`; a.click(); URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="min-h-screen bg-white">
       <TabNavigation />
       <main className="max-w-6xl mx-auto p-6 space-y-6">
-        <h1 className="text-2xl font-bold">정산 허브 — 월→일 노선 분배(Tab9)</h1>
+        <h1 className="text-2xl font-bold">정산 허브 (Tab9) — 엑셀 대조 · 기사×날짜×노선</h1>
 
-        {/* 필터 */}
+        {/* Filters */}
         <div className="grid gap-3 md:grid-cols-3">
           <div className="flex flex-col gap-1">
-            <label className="text-sm text-gray-600">월(YYYY-MM)</label>
-            <input value={month} onChange={(e) => setMonth(e.target.value)} type="month" className="border rounded p-2" />
+            <label className="text-sm text-gray-600">시작일</label>
+            <input type="date" value={start} onChange={(e)=>setStart(e.target.value)} className="border rounded p-2" />
           </div>
-          <div className="flex flex-col gap-1 md:col-span-2">
-            <label className="text-sm text-gray-600">기사(UID)</label>
-            <div className="flex gap-2">
-              <select value={selectedUid} onChange={(e) => setSelectedUid(e.target.value)} className="border rounded p-2 w-full">
-                <option value="">선택</option>
-                {drivers.map((d) => (<option key={d.uid} value={d.uid}>{driverLabel(d)}</option>))}
-              </select>
-              <Button variant="outline" onClick={() => { setRouteTotals({}); setAllocD({}); setAllocR({}); setMsg('') }}>초기화</Button>
-            </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm text-gray-600">종료일 (미포함)</label>
+            <input type="date" value={end} onChange={(e)=>setEnd(e.target.value)} className="border rounded p-2" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm text-gray-600">검색 (기사명/쿠팡ID/노선)</label>
+            <input value={search} onChange={(e)=>setSearch(e.target.value)} className="border rounded p-2" placeholder="예: cp1234, 302B, 정기주" />
           </div>
         </div>
 
-        {/* 월합계 입력/업로드 */}
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="text-sm text-gray-600">정산서 CSV 업로드 (routeCode,deliveries,returns)</label>
-            <input type="file" accept=".csv" onChange={(e) => onFile(e.target.files?.[0])} />
-            <div className="text-xs text-gray-500">헤더 예시: <code>routeCode,deliveries,returns</code></div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-gray-600">월합계 수동 입력</label>
-            <MonthlyTotalsEditor totals={routeTotals} onChange={setRouteTotals} />
-          </div>
+        {/* Upload */}
+        <div className="flex items-center gap-3">
+          <input type="file" accept=".xlsx,.xls" onChange={(e)=>onFile(e.target.files?.[0])} />
+          <label className="text-xs text-gray-500">시트명 <b>정산Raw</b> 를 자동 인식합니다. (없으면 첫 시트를 사용)</label>
+          <label className="inline-flex items-center gap-2 ml-auto text-sm"><input type="checkbox" checked={onlyMismatch} onChange={(e)=>setOnlyMismatch(e.target.checked)} />Mismatch만</label>
+          <Button variant="outline" onClick={exportCSV} disabled={filtered.length===0}>CSV 내보내기</Button>
         </div>
 
-        {/* 원본 합계 vs 월합계 */}
-        <div className="grid gap-3 md:grid-cols-2">
-          <DailyTotalsCard days={days} dayMap={dayMap} />
-          <RouteTotalsCard totals={routeTotals} />
-        </div>
+        {msg && <div className="text-sm text-gray-700">{msg}</div>}
 
-        {/* 미리보기 & 저장 */}
-        <div className="flex gap-2">
-          <Button onClick={preview} disabled={!selectedUid}>분배 미리보기</Button>
-          <Button onClick={save} disabled={!selectedUid || Object.keys(allocD).length === 0 || busy}>{busy ? '저장 중…' : 'DailySplits 저장'}</Button>
-          {msg && <div className="text-sm text-gray-700 ml-2">{msg}</div>}
-        </div>
-
-        {/* 매트릭스 미리보기 */}
-        {Object.keys(allocD).length > 0 && (
-          <div className="space-y-6">
-            <h2 className="text-lg font-semibold">배송 분배 미리보기</h2>
-            <MatrixTable days={days} routes={Object.keys(routeTotals)} matrix={allocD} rowTotal={(d) => dayMap[d]?.deliveries ?? 0} colTotal={(r) => routeTotals[r]?.deliveries ?? 0} />
-            <h2 className="text-lg font-semibold">반품 분배 미리보기</h2>
-            <MatrixTable days={days} routes={Object.keys(routeTotals)} matrix={allocR} rowTotal={(d) => dayMap[d]?.returns ?? 0} colTotal={(r) => routeTotals[r]?.returns ?? 0} />
-          </div>
-        )}
-      </main>
-    </div>
-  )
-}
-
-// ============ Subcomponents ============
-function DailyTotalsCard({ days, dayMap }: { days: string[]; dayMap: Record<string, DayTotal> }) {
-  const totalD = sum(days, (d) => dayMap[d]?.deliveries ?? 0)
-  const totalR = sum(days, (d) => dayMap[d]?.returns ?? 0)
-  return (
-    <div className="rounded-xl border p-3 bg-white">
-      <div className="text-sm font-medium mb-2">일자별 총합 (DailyRecords)</div>
-      <table className="w-full text-sm">
-        <thead><tr className="text-left"><th className="py-1">날짜</th><th className="py-1 text-right">배송</th><th className="py-1 text-right">반품</th></tr></thead>
-        <tbody>
-          {days.map((d) => (
-            <tr key={d} className="border-t">
-              <td className="py-1">{d}</td>
-              <td className="py-1 text-right">{dayMap[d]?.deliveries ?? 0}</td>
-              <td className="py-1 text-right">{dayMap[d]?.returns ?? 0}</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t font-semibold">
-            <td className="py-1">합계</td>
-            <td className="py-1 text-right">{totalD}</td>
-            <td className="py-1 text-right">{totalR}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  )
-}
-
-function RouteTotalsCard({ totals }: { totals: RouteTotals }) {
-  const routes = Object.keys(totals)
-  const td = sum(routes, (r) => totals[r].deliveries)
-  const tr = sum(routes, (r) => totals[r].returns)
-  return (
-    <div className="rounded-xl border p-3 bg-white">
-      <div className="text-sm font-medium mb-2">정산서 월합계 (노선별)</div>
-      <table className="w-full text-sm">
-        <thead><tr className="text-left"><th className="py-1">노선</th><th className="py-1 text-right">배송</th><th className="py-1 text-right">반품</th></tr></thead>
-        <tbody>
-          {routes.map((r) => (
-            <tr key={r} className="border-t">
-              <td className="py-1">{r}</td>
-              <td className="py-1 text-right">{totals[r].deliveries}</td>
-              <td className="py-1 text-right">{totals[r].returns}</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t font-semibold">
-            <td className="py-1">합계</td>
-            <td className="py-1 text-right">{td}</td>
-            <td className="py-1 text-right">{tr}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  )
-}
-
-function MonthlyTotalsEditor({ totals, onChange }: { totals: RouteTotals; onChange: (t: RouteTotals) => void }) {
-  const routes = Object.keys(totals)
-  const [routeInput, setRouteInput] = useState<string>('')
-  const [dVal, setDVal] = useState<string>('')
-  const [rVal, setRVal] = useState<string>('')
-
-  const add = () => {
-    if (!routeInput.trim()) return
-    const key = routeInput.trim().toUpperCase()
-    const d = Number(dVal) || 0
-    const r = Number(rVal) || 0
-    onChange({ ...totals, [key]: { deliveries: d, returns: r } })
-    setRouteInput(''); setDVal(''); setRVal('')
-  }
-
-  const remove = (k: string) => {
-    const next: RouteTotals = {}
-    for (const key of Object.keys(totals)) if (key !== k) next[key] = totals[key]
-    onChange(next)
-  }
-
-  return (
-    <div className="rounded-xl border p-3 bg-white space-y-2">
-      <div className="flex gap-2">
-        <input value={routeInput} onChange={(e) => setRouteInput(e.target.value)} placeholder="노선" className="border rounded p-2 w-32" />
-        <input value={dVal} onChange={(e) => setDVal(e.target.value)} placeholder="배송" className="border rounded p-2 w-24 text-right" />
-        <input value={rVal} onChange={(e) => setRVal(e.target.value)} placeholder="반품" className="border rounded p-2 w-24 text-right" />
-        <Button onClick={add} variant="outline">추가</Button>
-      </div>
-      <table className="w-full text-sm">
-        <thead><tr className="text-left"><th className="py-1">노선</th><th className="py-1 text-right">배송</th><th className="py-1 text-right">반품</th><th></th></tr></thead>
-        <tbody>
-          {routes.map((r) => (
-            <tr key={r} className="border-t">
-              <td className="py-1">{r}</td>
-              <td className="py-1 text-right">{totals[r].deliveries}</td>
-              <td className="py-1 text-right">{totals[r].returns}</td>
-              <td className="py-1 text-right"><Button variant="outline" onClick={() => remove(r)}>삭제</Button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function MatrixTable({ days, routes, matrix, rowTotal, colTotal }:
-  { days: string[]; routes: string[]; matrix: AllocationMatrix; rowTotal: (d: string) => number; colTotal: (r: string) => number }) {
-  const rowOk = (d: string) => rowTotal(d) === sum(routes, (r) => matrix[r]?.[d] ?? 0)
-  const colOk = (r: string) => colTotal(r) === sum(days, (d) => matrix[r]?.[d] ?? 0)
-  return (
-    <div className="rounded-xl border p-3 bg-white overflow-auto">
-      <table className="text-sm min-w-[720px] w-full">
-        <thead>
-          <tr className="text-left">
-            <th className="py-1">날짜</th>
-            {routes.map((r) => (
-              <th key={r} className={`py-1 text-right ${colOk(r) ? '' : 'text-red-600'}`}>{r}</th>
-            ))}
-            <th className="py-1 text-right">합계</th>
-          </tr>
-        </thead>
-        <tbody>
-          {days.map((d) => (
-            <tr key={d} className="border-t">
-              <td className="py-1">{d}</td>
-              {routes.map((r) => (
-                <td key={r} className="py-1 text-right">{matrix[r]?.[d] ?? 0}</td>
+        {/* Table */}
+        <div className="rounded-xl border bg-white overflow-auto">
+          <table className="min-w-[1000px] w-full text-sm">
+            <thead>
+              <tr className="text-left bg-gray-50">
+                <th className="p-2">날짜</th>
+                <th className="p-2">쿠팡ID</th>
+                <th className="p-2">기사명</th>
+                <th className="p-2">엑셀 노선</th>
+                <th className="p-2 text-right">엑셀 배송</th>
+                <th className="p-2 text-right">엑셀 반품</th>
+                <th className="p-2 text-right">사이트 배송</th>
+                <th className="p-2 text-right">사이트 반품</th>
+                <th className="p-2 text-right">Δ배송</th>
+                <th className="p-2 text-right">Δ반품</th>
+                <th className="p-2">상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r: ReconRow, idx:number)=> (
+                <tr key={`${r.date}_${r.coupangId}_${idx}`} className="border-t">
+                  <td className="p-2">{r.date}</td>
+                  <td className="p-2">{r.coupangId}</td>
+                  <td className="p-2">{r.driverName ?? '-'}</td>
+                  <td className="p-2">{r.routesFromExcel.join(', ')}</td>
+                  <td className="p-2 text-right">{r.excelDeliveries}</td>
+                  <td className="p-2 text-right">{r.excelReturns}</td>
+                  <td className="p-2 text-right">{r.siteDeliveries}</td>
+                  <td className="p-2 text-right">{r.siteReturns}</td>
+                  <td className={`p-2 text-right ${r.diffDeliveries===0 ? '' : 'text-red-600 font-semibold'}`}>{r.diffDeliveries}</td>
+                  <td className={`p-2 text-right ${r.diffReturns===0 ? '' : 'text-red-600 font-semibold'}`}>{r.diffReturns}</td>
+                  <td className="p-2">
+                    {r.status==='matched' ? <span className="px-2 py-1 rounded bg-green-50 text-green-700">Matched</span> : <span className="px-2 py-1 rounded bg-red-50 text-red-700">Mismatch</span>}
+                  </td>
+                </tr>
               ))}
-              <td className={`py-1 text-right ${rowOk(d) ? '' : 'text-red-600'}`}>{sum(routes, (r) => matrix[r]?.[d] ?? 0)} / {rowTotal(d)}</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t font-semibold">
-            <td className="py-1">합계</td>
-            {routes.map((r) => (
-              <td key={r} className={`py-1 text-right ${colOk(r) ? '' : 'text-red-600'}`}>{sum(days, (d) => matrix[r]?.[d] ?? 0)} / {colTotal(r)}</td>
-            ))}
-            <td className="py-1 text-right">—</td>
-          </tr>
-        </tfoot>
-      </table>
+              {filtered.length===0 && (
+                <tr><td className="p-3 text-gray-500" colSpan={11}>표시할 데이터가 없습니다. 엑셀을 업로드하거나 기간/검색을 변경하세요.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="text-xs text-gray-500">
+          ※ 엑셀에 노선이 누락된 행(프레시백 인센티브 등)은 자동 제외됩니다. DailyRecords의 <i>claimedRoutes</i>와 엑셀 노선이 다르면 분배 단계에서 참고하세요.
+        </div>
+      </main>
     </div>
   )
 }
