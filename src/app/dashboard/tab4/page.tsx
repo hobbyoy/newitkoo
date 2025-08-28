@@ -43,12 +43,12 @@ export default function Tab4() {
   const loadData = async () => {
     if (!startDate || !endDate) return
     try {
-      const q = query(
+      const qy = query(
         collection(db, 'FinalPayouts'),
         where('startDate', '==', startDate),
         where('endDate', '==', endDate)
       )
-      const snap = await getDocs(q)
+      const snap = await getDocs(qy)
       const result: FinalPayout[] = []
       const savedMap: Record<string, boolean> = {}
       const deductionMap: Record<string, Partial<Deductions>> = {}
@@ -62,7 +62,7 @@ export default function Tab4() {
         savedMap[data.uid] = exist.exists()
 
         if (exist.exists()) {
-          const existingData = exist.data()
+          const existingData = exist.data() as Partial<Deductions> & Record<string, any>
           deductionMap[data.uid] = {
             insOp: existingData.insOp || 0,
             empOp: existingData.empOp || 0,
@@ -120,71 +120,124 @@ export default function Tab4() {
   }
 
   return (
-    <div>
+    <div className="bg-white min-h-screen">
       <TabNavigation />
-      <main className="p-6 max-w-6xl mx-auto">
-        <h1 className="text-xl font-bold mb-6 text-blue-700">💼 기사별 수수료 계산 (Tab4)</h1>
+      <main className="max-w-[1024px] mx-auto py-8 px-4">
+        {/* 제목 중앙 한 줄 */}
+        <h1 className="text-[12px] font-semibold text-black text-center mb-6">
+          잇쿠 수익 정산 (Tab4)
+        </h1>
 
-        <div className="flex gap-4 mb-6">
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="border px-2 py-1 rounded" />
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border px-2 py-1 rounded" />
-          <button onClick={loadData} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">불러오기</button>
-        </div>
+        {/* 상단 컨트롤: 중앙 2열(360px × 360px) */}
+        <section className="grid grid-cols-1 lg:[grid-template-columns:360px_360px] lg:justify-center items-start gap-4 lg:gap-8 mb-10">
+          {/* 좌: 기간 입력(시작/종료) */}
+          <div className="w-[360px]">
+            <div className="flex flex-col gap-3">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full h-11 px-4 rounded-xl border border-neutral-300 shadow-sm
+                           text-[14px] text-black focus:outline-none focus:ring-2 focus:ring-[#2D91FF]/40"
+              />
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full h-11 px-4 rounded-xl border border-neutral-300 shadow-sm
+                           text-[14px] text-black focus:outline-none focus:ring-2 focus:ring-[#2D91FF]/40"
+              />
+            </div>
+          </div>
 
+          {/* 우: 불러오기 버튼(동일 높이) */}
+          <div className="w-[360px]">
+            <button
+              onClick={loadData}
+              className="w-full h-11 rounded-xl bg-blue-600 text-white text-[14px] font-semibold shadow-sm hover:bg-blue-700"
+            >
+              불러오기
+            </button>
+          </div>
+        </section>
+
+        {/* 표 영역: overflow-x 컨테이너 + sticky header + zebra */}
         {payouts.length === 0 ? (
-          <p className="text-gray-500 text-sm">📭 불러온 기사 수익 데이터가 없습니다.</p>
+          <p className="text-gray-500 text-sm text-center">📭 불러온 기사 수익 데이터가 없습니다.</p>
         ) : (
-          <table className="w-full text-sm border">
-            <thead className="bg-gray-100 text-center">
-              <tr>
-                <th className="border p-2">기사명</th>
-                <th className="border p-2">이메일</th>
-                <th className="border p-2">잇쿠 수수료</th>
-                <th className="border p-2">산재보험</th>
-                <th className="border p-2">고용보험</th>
-                <th className="border p-2">용차</th>
-                <th className="border p-2">기타</th>
-                <th className="border p-2">최종 수익</th>
-                <th className="border p-2">저장</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payouts.map(p => {
-                const d = deductions[p.uid] || {}
-                const insOp = d.insOp || 0
-                const empOp = d.empOp || 0
-                const rentalOp = d.rentalOp || 0
-                const etcOp = d.etcOp || 0
-                const finalNet = (p.itkooFee ?? 0) - insOp - empOp - rentalOp - etcOp
+          <div className="overflow-x-auto border rounded-xl shadow-sm">
+            <table className="min-w-[800px] w-full text-sm">
+              <thead className="bg-gray-50 sticky top-0 z-10">
+                <tr className="text-center text-gray-700">
+                  <th className="border-b px-3 py-3">기사명</th>
+                  <th className="border-b px-3 py-3">이메일</th>
+                  <th className="border-b px-3 py-3">잇쿠 수수료</th>
+                  <th className="border-b px-3 py-3">산재보험</th>
+                  <th className="border-b px-3 py-3">고용보험</th>
+                  <th className="border-b px-3 py-3">용차</th>
+                  <th className="border-b px-3 py-3">기타</th>
+                  <th className="border-b px-3 py-3">최종 수익</th>
+                  <th className="border-b px-3 py-3">저장</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payouts.map((p, i) => {
+                  const d = deductions[p.uid] || {}
+                  const insOp = d.insOp || 0
+                  const empOp = d.empOp || 0
+                  const rentalOp = d.rentalOp || 0
+                  const etcOp = d.etcOp || 0
+                  const finalNet = (p.itkooFee ?? 0) - insOp - empOp - rentalOp - etcOp
 
-                return (
-                  <tr key={p.uid} className="text-center border-t">
-                    <td className="border p-2">{p.name}</td>
-                    <td className="border p-2">{p.email}</td>
-                    <td className="border p-2">{(p.itkooFee ?? 0).toLocaleString()}</td>
-                    {[['insOp', insOp], ['empOp', empOp], ['rentalOp', rentalOp], ['etcOp', etcOp]].map(([key, val]) => (
-                      <td className="border p-2" key={key}>
-                        <input
-                          type="number"
-                          className="w-24 border rounded px-1 text-right"
-                          min={0}
-                          step={1000}
-                          value={val}
-                          onChange={(e) => handleChange(p.uid, key as keyof Deductions, e.target.value)}
-                        />
+                  return (
+                    <tr key={p.uid} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="px-3 py-3">{p.name}</td>
+                      <td className="px-3 py-3">{p.email}</td>
+                      <td className="px-3 py-3 text-right">{(p.itkooFee ?? 0).toLocaleString()}</td>
+
+                      {[
+                        ['insOp', insOp],
+                        ['empOp', empOp],
+                        ['rentalOp', rentalOp],
+                        ['etcOp', etcOp]
+                      ].map(([key, val]) => (
+                        <td className="px-3 py-3" key={key}>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            step={1000}
+                            value={val as number}
+                            onChange={(e) => handleChange(p.uid, key as keyof Deductions, e.target.value)}
+                            className="w-full h-11 px-3 rounded-md border border-neutral-300 shadow-sm
+                                       text-[14px] text-right placeholder:text-neutral-400
+                                       focus:outline-none focus:ring-2 focus:ring-[#2D91FF]/40"
+                          />
+                        </td>
+                      ))}
+
+                      <td className="px-3 py-3 text-right font-semibold text-green-700">
+                        {(finalNet ?? 0).toLocaleString()}
                       </td>
-                    ))}
-                    <td className="border p-2 font-semibold text-green-700">{(finalNet ?? 0).toLocaleString()}</td>
-                    <td className="border p-2">
-                      {saved[p.uid] ? '✅ 저장됨' : (
-                        <button onClick={() => handleSave(p)} className="bg-blue-500 text-white px-2 py-1 rounded">저장</button>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+
+                      <td className="px-3 py-3 text-center">
+                        {saved[p.uid] ? (
+                          <span className="text-green-600">✅ 저장됨</span>
+                        ) : (
+                          <button
+                            onClick={() => handleSave(p)}
+                            className="h-11 px-4 rounded-md bg-blue-600 text-white text-[14px] font-semibold hover:bg-blue-700"
+                          >
+                            저장
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </main>
     </div>
