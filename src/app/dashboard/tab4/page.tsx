@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore'
 import useRoleGuard from '@/hooks/useRoleGuard'
 import TabNavigation from '@/components/TabNavigation'
+import DateRangeBox from '@/components/tab3/DateRangeBox' // ← Tab3 컴포넌트 재활용!
 
 interface FinalPayout {
   uid: string
@@ -128,30 +129,23 @@ export default function Tab4() {
           잇쿠 수익 정산 (Tab4)
         </h1>
 
-        {/* 상단 컨트롤: 중앙 2열(360px × 360px) */}
-        <section className="grid grid-cols-1 lg:[grid-template-columns:360px_360px] lg:justify-center items-start gap-4 lg:gap-8 mb-10">
+        {/* 상단: Tab3의 DateRangeBox 재활용 (좌) + 우측은 정렬용 스페이서 */}
+        <section className="grid grid-cols-1 lg:[grid-template-columns:360px_360px] lg:justify-center items-start gap-4 lg:gap-8">
           <div className="w-[360px]">
-            <div className="flex flex-col gap-3">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full h-11 px-4 rounded-xl border border-neutral-300 shadow-sm
-                           text-[14px] text-black focus:outline-none focus:ring-2 focus:ring-[#2D91FF]/40"
-              />
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full h-11 px-4 rounded-xl border border-neutral-300 shadow-sm
-                           text-[14px] text-black focus:outline-none focus:ring-2 focus:ring-[#2D91FF]/40"
-              />
-            </div>
+            <DateRangeBox
+              onChange={(s, e) => {
+                setStartDate(s)
+                setEndDate(e)
+              }}
+            />
           </div>
-          <div className="w-[360px]">
+          {/* 우측 칼럼: 정렬을 맞추기 위한 빈 칼럼(필요시 다른 컨트롤 배치 가능) */}
+          <div className="w-[360px] lg:block hidden" />
+          {/* 2행: 불러오기 버튼 중앙 배치 */}
+          <div className="lg:col-span-2 flex justify-center mt-4 mb-8">
             <button
               onClick={loadData}
-              className="w-full h-11 rounded-xl bg-blue-600 text-white text-[14px] font-semibold shadow-sm hover:bg-blue-700"
+              className="w-[360px] h-11 rounded-xl bg-blue-600 text-white text-[14px] font-semibold shadow-sm hover:bg-blue-700"
             >
               불러오기
             </button>
@@ -171,7 +165,7 @@ export default function Tab4() {
                   <th className="border-b px-3 py-3">잇쿠 수수료</th>
                   <th className="border-b px-3 py-3">산재보험</th>
                   <th className="border-b px-3 py-3">고용보험</th>
-                  <th className="border-b px-3 py-3">용차</th>
+                  <th className="border-b px-3 py-3">운송지원비</th>
                   <th className="border-b px-3 py-3">기타</th>
                   <th className="border-b px-3 py-3">최종 수익</th>
                   <th className="border-b px-3 py-3">저장</th>
