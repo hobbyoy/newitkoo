@@ -8,7 +8,7 @@ import { auth, db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
 
 const tabs = [
-  { label: '실적입력(t)', path: '/dashboard/tab0', role: 'admin' },
+  { label: '실적입력', path: '/dashboard/tab0', role: 'admin' },
   { label: '실적입력(운)', path: '/dashboard/tab1', role: 'admin' },
   { label: '실적리포트', path: '/dashboard/tab2', role: 'admin' },
   { label: '기사정산', path: '/dashboard/tab3', role: 'admin' },
